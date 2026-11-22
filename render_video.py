@@ -75,16 +75,18 @@ if not AUDIO.exists() or AUDIO.stat().st_size < 10000:
 # Phrase cues use the actual HeyGen word timing landmarks, grouped into readable phrases.
 CAPTIONS = [
  (0.25,3.40,"Artificial intelligence is changing cybersecurity."),
- (3.75,8.68,"What happens when it's used against the institutions it should protect?"),
+ (3.75,8.68,"But what happens when the same technology is used against the institutions it was meant to protect?"),
  (8.99,13.99,"On October twenty-second, a cyber campaign targeting the European Commission was detected."),
- (14.33,19.65,"Officials confirmed that AI tools had been used."),
+ (14.33,19.65,"Nearly a month later, officials confirmed something significant: AI tools had been used."),
  (19.94,23.78,"Several internal applications were temporarily taken offline as a precaution."),
- (24.46,28.82,"Most have been restored. The investigation is still underway."),
- (29.36,34.72,"Authorities have not identified the attackers or the full extent of the incident."),
- (35.31,39.63,"The Commission found no evidence of a data breach affecting staff as a whole."),
+ (24.46,28.82,"Most have since been restored. The investigation, however, is still underway."),
+ (29.36,31.84,"Authorities have not publicly identified the attackers."),
+ (32.45,34.72,"Nor have they established the full extent of the incident."),
+ (35.31,39.63,"The Commission says it has found no evidence of a data breach affecting its staff as a whole."),
  (40.29,45.08,"The same technology can help defenders discover weaknesses—or help attackers find them first."),
  (45.84,48.92,"The difference is increasingly about who controls the tools."),
- (49.30,56.65,"AI is part of the cybersecurity battlefield. The race to defend our digital infrastructure has begun.")
+ (49.30,52.55,"AI is becoming part of the cybersecurity battlefield."),
+ (52.81,56.65,"And the race to defend our digital infrastructure has already begun.")
 ]
 
 def background(t, scene):
