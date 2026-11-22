@@ -1,0 +1,50 @@
+name: Capture website screenshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Website URL to capture
+        required: true
+        default: https://example.com
+      full_page:
+        description: Capture the full page
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Playwright and Chromium
+        run: |
+          python -m pip install --upgrade pip
+          pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Capture screenshot
+        env:
+          TARGET_URL: ${{ inputs.url }}
+          FULL_PAGE: ${{ inputs.full_page }}
+        run: python screenshot.py
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-screenshot
+          path: screenshots/
+          if-no-files-found: error
+          retention-days: 7
