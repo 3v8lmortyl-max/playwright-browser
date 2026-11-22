@@ -8,8 +8,7 @@ if not targets_file.exists():
     raise SystemExit("capture_targets.txt is missing.")
 
 targets = [
-    line.strip()
-    for line in targets_file.read_text(encoding="utf-8").splitlines()
+    line.strip() for line in targets_file.read_text(encoding="utf-8").splitlines()
     if line.strip() and not line.lstrip().startswith("#")
 ]
 if not targets:
@@ -18,10 +17,9 @@ if not targets:
 output_dir = Path("screenshots")
 output_dir.mkdir(exist_ok=True)
 
-def safe_name(url, index):
+def safe_host(url):
     host = urlparse(url).netloc or "page"
-    host = re.sub(r"[^a-zA-Z0-9.-]+", "_", host)
-    return f"{index:02d}_{host}.png"
+    return re.sub(r"[^a-zA-Z0-9.-]+", "_", host)
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
@@ -31,19 +29,29 @@ with sync_playwright() as p:
             print(f"SKIP unsupported URL: {url}")
             continue
 
-        page = browser.new_page(
-            viewport={"width": 1440, "height": 1000},
-            device_scale_factor=1,
+        context = browser.new_context(
+            viewport={"width": 432, "height": 768},
+            screen={"width": 432, "height": 768},
+            device_scale_factor=2.5,
+            is_mobile=True,
+            has_touch=True,
         )
+        page = context.new_page()
         try:
             response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_timeout(2500)
-            output_file = output_dir / safe_name(page.url, index)
-            page.screenshot(path=str(output_file), full_page=False, animations="disabled")
-            status = response.status if response else "no response"
-            print(f"CAPTURED | {status} | {page.title()} | {page.url} | {output_file}")
+            page.wait_for_timeout(2200)
+            # Capture successive mobile screenfuls; each output is 1080x1920.
+            height = page.evaluate("Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)")
+            positions = list(range(0, max(1, height), 650))[:10]
+            for part, y in enumerate(positions, start=1):
+                page.evaluate("(y) => window.scrollTo(0, y)", y)
+                page.wait_for_timeout(350)
+                output_file = output_dir / f"{index:02d}_{safe_host(page.url)}_{part:02d}.png"
+                page.screenshot(path=str(output_file), full_page=False, animations="disabled")
+                print(f"CAPTURED | {output_file} | scroll={y}")
+            print(f"SOURCE | {response.status if response else 'no response'} | {page.title()} | {page.url}")
         except Exception as exc:
             print(f"FAILED | {url} | {type(exc).__name__}: {exc}")
         finally:
-            page.close()
+            context.close()
     browser.close()
