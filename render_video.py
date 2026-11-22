@@ -1,7 +1,8 @@
 import os, math, subprocess, urllib.request
 from pathlib import Path
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 
 W, H, FPS = 720, 1280, 24
 DURATION = 56.85
@@ -87,16 +88,15 @@ CAPTIONS = [
 ]
 
 def background(t, scene):
-    im = Image.new("RGB",(W,H),BG)
-    px = im.load()
-    # Restrained radial glow, red/cyan split by scene.
     cx, cy = (W*.72,H*.34) if scene in (1,4) else (W*.32,H*.42)
     accent = RED if scene in (0,2,3,5) else CYAN
-    for y in range(H):
-        for x in range(W):
-            d = math.sqrt(((x-cx)/W)**2 + ((y-cy)/H)**2)
-            glow = max(0, 1-d*2.1) * 0.12
-            px[x,y] = tuple(min(255, int(BG[k] + accent[k]*glow)) for k in range(3))
+    yy, xx = np.mgrid[0:H,0:W]
+    dist = np.sqrt(((xx-cx)/W)**2 + ((yy-cy)/H)**2)
+    glow = np.maximum(0,1-dist*2.1) * 0.12
+    base = np.asarray(BG,dtype=np.float32)[None,None,:]
+    color = np.asarray(accent,dtype=np.float32)[None,None,:]
+    pixels = np.clip(base + glow[:,:,None]*color,0,255).astype(np.uint8)
+    im = Image.fromarray(pixels,"RGB")
     d = ImageDraw.Draw(im, "RGBA")
     offset = int(t*18)%48
     for x in range(-48,W+48,48):
