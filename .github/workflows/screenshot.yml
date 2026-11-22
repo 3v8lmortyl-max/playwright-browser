@@ -1,6 +1,8 @@
 name: Capture website screenshot
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       url:
@@ -37,8 +39,8 @@ jobs:
 
       - name: Capture screenshot
         env:
-          TARGET_URL: ${{ inputs.url }}
-          FULL_PAGE: ${{ inputs.full_page }}
+          TARGET_URL: ${{ inputs.url || 'https://example.com' }}
+          FULL_PAGE: ${{ inputs.full_page || 'false' }}
         run: python screenshot.py
 
       - name: Upload screenshot
