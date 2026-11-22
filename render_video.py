@@ -180,11 +180,13 @@ def scene_content(im,t,scene):
         d.text((48,160),"WHAT IS NOT YET KNOWN",font=font(22,True),fill=CYAN)
         d.text((48,220),"INVESTIGATION",font=font(48,True),fill=WHITE)
         d.text((48,280),"STILL ONGOING",font=font(52,True),fill=RED)
-        # unresolved question marks over a network
-        network(d,t,scene)
-        rounded(d,(52,880,668,1060),18,(12,18,27,240),outline=(255,65,75),width=2)
-        d.text((82,910),"NO PUBLIC ATTRIBUTION",font=font(28,True),fill=WHITE)
-        d.text((82,966),"NO CONFIRMED FULL SCOPE",font=font(24,True),fill=RED)
+        # Real independent reporting screenshot, captured by our remote browser.
+        browser_panel(im,euronext,t,"INDEPENDENT REPORTING")
+        d=ImageDraw.Draw(im,"RGBA")
+        rounded(d,(52,830,668,1035),18,(12,18,27,240),outline=RED,width=2)
+        d.text((82,865),"NO PUBLIC ATTRIBUTION",font=font(28,True),fill=WHITE)
+        d.text((82,925),"INVESTIGATION ONGOING",font=font(25,True),fill=RED)
+        d.text((82,982),"FULL SCOPE NOT ESTABLISHED",font=font(21,True),fill=WHITE)
     elif scene==4:
         d.text((48,150),"THE DUAL-USE PROBLEM",font=font(22,True),fill=CYAN)
         # split comparison, aligned columns
