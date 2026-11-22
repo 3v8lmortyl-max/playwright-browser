@@ -170,7 +170,7 @@ def scene_content(im,t,scene):
         network(d,t,scene)
         # application nodes visibly drop, then return
         for i in range(5):
-            x=90+i*135; y=780
+            x=90+i*135; y=690
             active = ((t*1.4+i*.45)%4.5)>2.1
             c=CYAN if active else RED
             rounded(d,(x-42,y-42,x+42,y+42),14,(17,27,39),outline=c,width=4)
@@ -180,8 +180,8 @@ def scene_content(im,t,scene):
         d.text((70,900),"MOST HAVE SINCE BEEN RESTORED",font=font(20,True),fill=CYAN)
     elif scene==3:
         d.text((48,160),"WHAT IS NOT YET KNOWN",font=font(22,True),fill=CYAN)
-        d.text((48,220),"INVESTIGATION",font=font(48,True),fill=WHITE)
-        d.text((48,280),"STILL ONGOING",font=font(52,True),fill=RED)
+        d.text((48,170),"INVESTIGATION",font=font(48,True),fill=WHITE)
+        d.text((48,230),"STILL ONGOING",font=font(52,True),fill=RED)
         # Real independent reporting screenshot, captured by our remote browser.
         browser_panel(im,euronext,t,"INDEPENDENT REPORTING")
         d=ImageDraw.Draw(im,"RGBA")
