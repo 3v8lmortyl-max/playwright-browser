@@ -46,6 +46,7 @@ jobs:
         run: python screenshot.py
 
       - name: Render documentary
+        if: hashFiles('narration_url.txt') != ''
         run: python render_video.py
 
       - name: Upload finished video and project assets
@@ -55,5 +56,5 @@ jobs:
           path: |
             output/
             screenshots/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
