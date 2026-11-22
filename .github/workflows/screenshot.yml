@@ -22,6 +22,8 @@ jobs:
   screenshot-and-render:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      NARRATION_URL: ${{ secrets.NARRATION_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -34,7 +36,7 @@ jobs:
       - name: Install Playwright and rendering dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright pillow numpy
+          pip install playwright pillow
           python -m playwright install --with-deps chromium
           sudo apt-get update
           sudo apt-get install -y ffmpeg
@@ -46,7 +48,7 @@ jobs:
         run: python screenshot.py
 
       - name: Render documentary
-        if: hashFiles('narration_url.txt') != ''
+        if: env.NARRATION_URL != '' || hashFiles('narration_url.txt') != ''
         run: python render_video.py
 
       - name: Upload finished video and project assets
