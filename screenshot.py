@@ -1,30 +1,49 @@
-import os
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
 
-url = os.environ.get("TARGET_URL", "https://example.com").strip()
-if not urlparse(url).scheme:
-    url = "https://" + url
+targets_file = Path("capture_targets.txt")
+if not targets_file.exists():
+    raise SystemExit("capture_targets.txt is missing.")
 
-if urlparse(url).scheme not in {"http", "https"}:
-    raise SystemExit("Only http:// and https:// URLs are supported.")
+targets = [
+    line.strip()
+    for line in targets_file.read_text(encoding="utf-8").splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+]
+if not targets:
+    raise SystemExit("No URLs found in capture_targets.txt.")
 
-full_page = os.environ.get("FULL_PAGE", "false").lower() == "true"
 output_dir = Path("screenshots")
 output_dir.mkdir(exist_ok=True)
-output_file = output_dir / "page.png"
+
+def safe_name(url, index):
+    host = urlparse(url).netloc or "page"
+    host = re.sub(r"[^a-zA-Z0-9.-]+", "_", host)
+    return f"{index:02d}_{host}.png"
 
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    page = browser.new_page(
-        viewport={"width": 1440, "height": 1000},
-        device_scale_factor=1,
-    )
-    response = page.goto(url, wait_until="networkidle", timeout=60000)
-    page.screenshot(path=str(output_file), full_page=full_page)
-    print(f"URL: {page.url}")
-    print(f"HTTP status: {response.status if response else 'no response'}")
-    print(f"Title: {page.title()}")
-    print(f"Screenshot: {output_file}")
+    for index, raw_url in enumerate(targets, start=1):
+        url = raw_url if urlparse(raw_url).scheme else "https://" + raw_url
+        if urlparse(url).scheme not in {"http", "https"}:
+            print(f"SKIP unsupported URL: {url}")
+            continue
+
+        page = browser.new_page(
+            viewport={"width": 1440, "height": 1000},
+            device_scale_factor=1,
+        )
+        try:
+            response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(2500)
+            output_file = output_dir / safe_name(page.url, index)
+            page.screenshot(path=str(output_file), full_page=False, animations="disabled")
+            status = response.status if response else "no response"
+            print(f"CAPTURED | {status} | {page.title()} | {page.url} | {output_file}")
+        except Exception as exc:
+            print(f"FAILED | {url} | {type(exc).__name__}: {exc}")
+        finally:
+            page.close()
     browser.close()
