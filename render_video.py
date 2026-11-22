@@ -136,7 +136,7 @@ def browser_panel(base, shot, t, label):
     src=src.resize((int(src.width*ratio),int(src.height*ratio)),Image.Resampling.LANCZOS)
     left=(src.width-target_w)//2; top=(src.height-target_h)//2
     src=src.crop((left,top,left+target_w,top+target_h))
-    x=35; y=300+int(8*math.sin(t*1.2))
+    x=35; y=360+int(8*math.sin(t*1.2))
     base.paste(src,(x,y))
     d=ImageDraw.Draw(base)
     d.rectangle((x,y,x+target_w,y+target_h),outline=(65,82,101),width=2)
@@ -153,7 +153,7 @@ def scene_content(im,t,scene):
         draw_centered(d,"AI IS CHANGING",170,font(48,True),WHITE)
         draw_centered(d,"CYBERSECURITY",230,font(58,True),RED)
         chain_mark(d,360,790,1.2,CYAN)
-        d.text((52,1030),"THE SAME TOOL. TWO SIDES.",font=font(25,True),fill=WHITE)
+        d.text((52,930),"THE SAME TOOL. TWO SIDES.",font=font(25,True),fill=WHITE)
     elif scene==1:
         d.text((48,160),"DOCUMENTED INCIDENT",font=font(22,True),fill=CYAN)
         d.text((48,205),"BRUSSELS",font=font(60,True),fill=WHITE)
@@ -175,9 +175,9 @@ def scene_content(im,t,scene):
             c=CYAN if active else RED
             rounded(d,(x-42,y-42,x+42,y+42),14,(17,27,39),outline=c,width=4)
             d.ellipse((x-10,y-10,x+10,y+10),fill=c)
-        d.text((70,900),"SEVERAL APPLICATIONS",font=font(27,True),fill=WHITE)
-        d.text((70,944),"TEMPORARILY TAKEN OFFLINE",font=font(22,True),fill=RED)
-        d.text((70,1005),"MOST HAVE SINCE BEEN RESTORED",font=font(20,True),fill=CYAN)
+        d.text((70,810),"SEVERAL APPLICATIONS",font=font(27,True),fill=WHITE)
+        d.text((70,854),"TEMPORARILY TAKEN OFFLINE",font=font(22,True),fill=RED)
+        d.text((70,900),"MOST HAVE SINCE BEEN RESTORED",font=font(20,True),fill=CYAN)
     elif scene==3:
         d.text((48,160),"WHAT IS NOT YET KNOWN",font=font(22,True),fill=CYAN)
         d.text((48,220),"INVESTIGATION",font=font(48,True),fill=WHITE)
@@ -185,10 +185,10 @@ def scene_content(im,t,scene):
         # Real independent reporting screenshot, captured by our remote browser.
         browser_panel(im,euronext,t,"INDEPENDENT REPORTING")
         d=ImageDraw.Draw(im,"RGBA")
-        rounded(d,(52,830,668,1035),18,(12,18,27,240),outline=RED,width=2)
-        d.text((82,865),"NO PUBLIC ATTRIBUTION",font=font(28,True),fill=WHITE)
-        d.text((82,925),"INVESTIGATION ONGOING",font=font(25,True),fill=RED)
-        d.text((82,982),"FULL SCOPE NOT ESTABLISHED",font=font(21,True),fill=WHITE)
+        rounded(d,(52,850,668,1015),18,(12,18,27,240),outline=RED,width=2)
+        d.text((82,880),"NO PUBLIC ATTRIBUTION",font=font(28,True),fill=WHITE)
+        d.text((82,930),"INVESTIGATION ONGOING",font=font(25,True),fill=RED)
+        d.text((82,976),"FULL SCOPE NOT ESTABLISHED",font=font(21,True),fill=WHITE)
     elif scene==4:
         d.text((48,150),"THE DUAL-USE PROBLEM",font=font(22,True),fill=CYAN)
         # split comparison, aligned columns
@@ -211,8 +211,8 @@ def scene_content(im,t,scene):
         draw_centered(d,"WHO CONTROLS",600,font(54,True),WHITE)
         draw_centered(d,"THE TOOLS?",670,font(64,True),RED)
         draw_centered(d,"THE DEFENCE RACE HAS BEGUN.",830,font(26,True),CYAN)
-        d.text((48,1110),"HACKWITHMORTY",font=font(23,True),fill=WHITE)
-        d.text((48,1150),"CYBERSECURITY • CURRENT AFFAIRS",font=font(16,True),fill=MUTED)
+        d.text((48,900),"HACKWITHMORTY",font=font(23,True),fill=WHITE)
+        d.text((48,940),"CYBERSECURITY • CURRENT AFFAIRS",font=font(16,True),fill=MUTED)
 
 def active_caption(t):
     for a,b,s in CAPTIONS:
