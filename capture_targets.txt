@@ -1,4 +1,4 @@
-# European Commission AI-assisted cyber campaign — source pages to capture
+# Primary documentary source
 https://audiovisual.ec.europa.eu/en/media/video/I-298222
-https://apnews.com/article/79705095e8141cd650196dbff1cf3c70
-https://www.reuters.com/legal/litigation/eu-commission-targeted-cyberattack-politico-reports-2026-11-19/
+# Independent reporting page
+https://live.euronext.com/en/financial-news/eu-commission-confirms-it-was-targeted-cyberattack-through-use-ai-tools
