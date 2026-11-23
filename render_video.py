@@ -26,12 +26,23 @@ def probe_audio(path: Path) -> float:
     return duration
 
 def download_narration() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    local_audio = os.environ.get("NARRATION_FILE", "").strip()
+    if local_audio:
+        source = Path(local_audio)
+        if not source.is_file():
+            raise SystemExit(f"NARRATION_FILE does not exist: {source}")
+        if source.resolve() != AUDIO.resolve():
+            shutil.copy2(source, AUDIO)
+        if AUDIO.stat().st_size < 10_000:
+            raise SystemExit("Local narration file is empty or incomplete.")
+        return
+
     url = os.environ.get("NARRATION_URL", "").strip()
     if not url:
         raise SystemExit("Missing NARRATION_URL repository secret.")
     if not url.startswith("https://"):
         raise SystemExit("NARRATION_URL must use HTTPS.")
-    OUT.mkdir(parents=True, exist_ok=True)
     partial = AUDIO.with_suffix(".wav.part")
     request = urllib.request.Request(url, headers={"User-Agent": "HackWithMorty-Documentary/1.0"})
     try:
