@@ -22,6 +22,32 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+def dismiss_cookie_notice(page) -> str:
+    # Prefer privacy-preserving choices. Never click "accept all".
+    choices = [
+        (re.compile(r"reject all", re.I), "reject_all"),
+        (re.compile(r"accept only essential cookies|only essential cookies", re.I), "essential_only"),
+        (re.compile(r"decline all|refuse all|reject optional", re.I), "decline_optional"),
+    ]
+    for pattern, action in choices:
+        try:
+            buttons = page.get_by_role("button", name=pattern)
+            if buttons.count():
+                buttons.first.click(timeout=2500)
+                page.wait_for_timeout(700)
+                return action
+        except Exception:
+            pass
+        try:
+            candidates = page.locator("button, [role=button], a").filter(has_text=pattern)
+            if candidates.count():
+                candidates.first.click(timeout=2500)
+                page.wait_for_timeout(700)
+                return action
+        except Exception:
+            pass
+    return "no_consent_control_found"
+
 def visible_text(page) -> str:
     script = """
     () => Array.from(document.querySelectorAll('body *'))
@@ -68,6 +94,7 @@ def main() -> None:
             try:
                 response = page.goto(url, wait_until="domcontentloaded", timeout=60_000)
                 page.wait_for_timeout(1800)
+                consent_action = dismiss_cookie_notice(page)
                 page_height = page.evaluate(
                     "() => Math.max(document.body.scrollHeight, document.documentElement.scrollHeight)"
                 )
@@ -90,7 +117,8 @@ def main() -> None:
                         "width": width, "height": height, "source_index": source_index,
                         "source_url": page.url, "source_title": page.title(),
                         "http_status": response.status if response else None,
-                        "scroll_y": scroll_y, "visible_text": visible_text(page),
+                        "scroll_y": scroll_y, "cookie_consent_action": consent_action,
+                        "visible_text": visible_text(page),
                     })
                     print(f"CAPTURED | {output_path} | {width}x{height} | scroll={scroll_y}")
                 print(f"SOURCE | {response.status if response else 'no response'} | {page.title()} | {page.url}")
