@@ -6,19 +6,15 @@ from pathlib import Path
 import re
 
 BEATS = [
-    {"start": 0.25, "caption_end": 3.40, "text": "Artificial intelligence is changing cybersecurity."},
-    {"start": 3.75, "caption_end": 8.68, "text": "But what happens when the same technology is used against the institutions it was meant to protect?"},
-    {"start": 8.99, "caption_end": 13.99, "text": "On October twenty-second, a cyber campaign targeting the European Commission was detected."},
-    {"start": 14.33, "caption_end": 19.65, "text": "Nearly a month later, officials confirmed something significant: AI tools had been used."},
-    {"start": 19.94, "caption_end": 23.78, "text": "Several internal applications were temporarily taken offline as a precaution."},
-    {"start": 24.46, "caption_end": 28.82, "text": "Most have since been restored. The investigation, however, is still underway."},
-    {"start": 29.36, "caption_end": 31.84, "text": "Authorities have not publicly identified the attackers."},
-    {"start": 32.45, "caption_end": 34.72, "text": "Nor have they established the full extent of the incident."},
-    {"start": 35.31, "caption_end": 39.63, "text": "The Commission says it has found no evidence of a data breach affecting its staff as a whole."},
-    {"start": 40.29, "caption_end": 45.08, "text": "The same technology can help defenders discover weaknesses—or help attackers find them first."},
-    {"start": 45.84, "caption_end": 48.92, "text": "The difference is increasingly about who controls the tools."},
-    {"start": 49.30, "caption_end": 52.55, "text": "AI is becoming part of the cybersecurity battlefield."},
-    {"start": 52.81, "caption_end": 56.65, "text": "And the race to defend our digital infrastructure has already begun."},
+    {"start": 0.25, "caption_end": 6.10, "text": "One poisoned software release. A hidden credential stealer. And a route into cloud systems."},
+    {"start": 6.44, "caption_end": 16.80, "text": "On November seventeenth, two malicious versions of Microsoft's Agent Framework appeared on the Python Package Index: versions one point two six point one and one point two six point two."},
+    {"start": 17.11, "caption_end": 27.50, "text": "They looked like routine updates. But each carried a Python dot P T H startup hook — code that can run whenever Python starts, even if the application never imports the package."},
+    {"start": 27.75, "caption_end": 40.90, "text": "The payload searched environment variables, credential files and running processes. Researchers also found attempts to obtain Azure managed identity tokens. The second release expanded its reach to GitHub Actions open identity tokens."},
+    {"start": 41.47, "caption_end": 56.55, "text": "The timeline was measured in minutes. Version one point two six point one appeared at twenty thirty-five U T C. A second release followed at twenty-one oh-eight. PyPI quarantined the first, then the attacker pushed the second. Both were removed that evening."},
+    {"start": 56.82, "caption_end": 71.40, "text": "The GitHub advisory identifies both releases as malicious. Version one point two six point zero is listed as the last clean release. Researchers have not publicly attributed the attack to a known group, and the number of compromised environments remains unknown."},
+    {"start": 72.17, "caption_end": 81.55, "text": "This is why software supply chains are security boundaries. An AI framework does not need to be breached through its model. A poisoned dependency can reach the credentials around it."},
+    {"start": 82.08, "caption_end": 91.00, "text": "If you installed either affected version, treat that environment as exposed: rebuild it, rotate reachable credentials, and review cloud and CI activity."},
+    {"start": 91.76, "caption_end": 97.20, "text": "The next security incident may not begin with a suspicious email. It may begin with an update button."},
 ]
 
 def _allocate_counts(total: int, weights: list[float]) -> list[int]:
