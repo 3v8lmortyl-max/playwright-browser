@@ -4,7 +4,7 @@ A reproducible pipeline for vertical documentary videos. It captures source page
 
 ## Pipeline
 
-1. Capture: capture_targets.txt is the canonical source list. screenshot.py captures mobile viewport screenshots at 1080x1920 and writes capture_manifest.json with source URL, title, scroll position, dimensions and SHA-256.
+1. Capture: capture_targets.txt is the canonical source list. screenshot.py dismisses common cookie overlays using reject/essential-only choices (never accept-all), captures mobile viewport screenshots at 1080x1920, and writes capture_manifest.json with source URL, title, scroll position, visible text, dimensions and SHA-256. The capture validator rejects screenshots still contaminated by cookie dialogs or containing too little visible text.
 2. Storyboard: storyboard.py scores each capture against narration beats using extracted viewport text, page title and source URL. Duration-based quotas control the number of shots per beat; stable source-order tie-breaking keeps the plan deterministic. Every captured image is assigned exactly once. Beats without an image become centered intertitles.
 3. Render: render_video.py reads the actual narration duration using ffprobe, preserves source-image aspect ratios (no destructive crop), uses hard cuts and creates an external SRT. It also writes a storyboard JSON, contact sheet and render report.
 4. Validate: validate_pipeline.py verifies capture dimensions and hashes; after rendering it checks image coverage, MP4 streams, resolution and duration.
