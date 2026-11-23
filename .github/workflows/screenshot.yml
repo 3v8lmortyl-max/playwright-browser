@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       capture_only:
-        description: Capture and validate sources without rendering the MP4
+        description: Capture and validate sources without rendering
         required: false
         type: boolean
         default: false
@@ -45,7 +45,20 @@ jobs:
         run: python screenshot.py
       - name: Validate captured sources
         run: python validate_pipeline.py --stage capture
-      - name: Render documentary
+      - name: Create deterministic smoke-test narration
+        if: ${{ env.NARRATION_URL == '' && inputs.capture_only != true }}
+        run: |
+          mkdir -p output
+          ffmpeg -y -hide_banner -loglevel error -f lavfi -i anullsrc=r=48000:cl=stereo -t 57.376 -c:a pcm_s16le output/smoke_narration.wav
+      - name: Smoke-test complete renderer without production audio
+        if: ${{ env.NARRATION_URL == '' && inputs.capture_only != true }}
+        env:
+          NARRATION_FILE: output/smoke_narration.wav
+        run: |
+          python render_video.py
+          python validate_pipeline.py --stage render | tee output/smoke_test_validation.json
+          rm -f output/hackwithmorty_ai_cyber_campaign.mp4 output/narration.wav output/smoke_narration.wav output/timeline.ffconcat output/render_report.json
+      - name: Render documentary with production narration
         if: ${{ env.NARRATION_URL != '' && inputs.capture_only != true }}
         run: |
           python render_video.py
