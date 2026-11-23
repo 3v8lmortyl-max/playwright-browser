@@ -1,16 +1,12 @@
-name: Capture sources and render current-affairs video
+name: Capture sources and render documentary
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
     inputs:
-      url:
-        description: Website URL to capture
-        required: true
-        default: https://example.com
-      full_page:
-        description: Capture the full page
+      capture_only:
+        description: Capture and validate sources without rendering the MP4
         required: false
         type: boolean
         default: false
@@ -18,45 +14,49 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: documentary-pipeline-\${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  screenshot-and-render:
+  documentary:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      NARRATION_URL: ${{ secrets.NARRATION_URL }}
+      NARRATION_URL: \${{ secrets.NARRATION_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Install Playwright and rendering dependencies
+          cache: pip
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install playwright pillow
-          python -m playwright install --with-deps chromium
+          pip install -r requirements.txt
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
+          python -m playwright install --with-deps chromium
+      - name: Run storyboard unit tests
+        run: pytest -q
       - name: Capture source pages
-        env:
-          TARGET_URL: ${{ inputs.url || 'https://example.com' }}
-          FULL_PAGE: ${{ inputs.full_page || 'false' }}
         run: python screenshot.py
-
+      - name: Validate captured sources
+        run: python validate_pipeline.py --stage capture
       - name: Render documentary
-        if: env.NARRATION_URL != '' || hashFiles('narration_url.txt') != ''
-        run: python render_video.py
-
-      - name: Upload finished video and project assets
+        if: \${{ env.NARRATION_URL != '' && inputs.capture_only != true }}
+        run: |
+          python render_video.py
+          python validate_pipeline.py --stage render
+      - name: Upload documentary and source evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hackwithmorty-ai-cyber-campaign
+          name: hackwithmorty-documentary
           path: |
-            output/
+            capture_manifest.json
             screenshots/
-          if-no-files-found: warn
+            output/
+          if-no-files-found: error
           retention-days: 14
