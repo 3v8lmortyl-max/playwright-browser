@@ -1,5 +1,5 @@
 import unittest
-from storyboard import build_storyboard
+from storyboard import BEATS, build_storyboard
 
 def assets(count):
     return {"assets": [
@@ -28,6 +28,22 @@ class StoryboardTests(unittest.TestCase):
         for previous, current in zip(shots, shots[1:]):
             self.assertAlmostEqual(previous["end"], current["start"], places=2)
         self.assertTrue(all(s["end"] > s["start"] for s in shots))
+
+    def test_visible_source_text_matches_the_relevant_narration_beat(self):
+        source_assets = {
+            "assets": [
+                {"asset_id": f"beat-{i}", "path": f"source-{i}.png",
+                 "visible_text": beat["text"], "source_title": "", "source_url": ""}
+                for i, beat in enumerate(BEATS)
+            ]
+        }
+        plan = build_storyboard(source_assets, 57.37585)
+        assignments = {
+            shot["asset_id"]: shot["beat_index"]
+            for shot in plan["timeline"] if shot["kind"] == "image"
+        }
+        for index in range(len(BEATS)):
+            self.assertEqual(assignments[f"beat-{index}"], index)
 
     def test_empty_manifest_is_rejected(self):
         with self.assertRaises(ValueError):
