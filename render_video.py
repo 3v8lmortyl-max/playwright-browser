@@ -105,6 +105,92 @@ def prepare_still(source: Path, output: Path) -> None:
     canvas.paste(fitted, ((W - fitted.width) // 2, (H - fitted.height) // 2))
     canvas.save(output, format="PNG", optimize=True)
 
+def inject_explainers(plan: dict) -> None:
+    """Insert four authored visual explainers while retaining every source capture."""
+    explainers = {2: "pth", 3: "credentials", 4: "timeline", 7: "response"}
+    output = []
+    inserted = set()
+    for shot in plan["timeline"]:
+        beat = shot.get("beat_index")
+        kind = explainers.get(beat)
+        if kind and shot["kind"] == "image" and beat not in inserted and shot["end"] - shot["start"] >= 3.0:
+            midpoint = round((shot["start"] + shot["end"]) / 2, 3)
+            image_shot = dict(shot)
+            image_shot["end"] = midpoint
+            graphic_shot = {
+                "kind": "graphic", "graphic_type": kind,
+                "start": midpoint, "end": shot["end"],
+                "beat_index": beat, "source_note": "Editorial explainer based on cited reporting",
+            }
+            output.extend([image_shot, graphic_shot])
+            inserted.add(beat)
+        else:
+            output.append(shot)
+    plan["timeline"] = output
+
+
+def make_explainer_card(kind: str, output: Path) -> None:
+    image = Image.new("RGB", (W, H), (7, 11, 18))
+    draw = ImageDraw.Draw(image)
+    title_font = ImageFont.truetype(FONT_BOLD, 66)
+    body_font = ImageFont.truetype(FONT_REG, 37)
+    small_font = ImageFont.truetype(FONT_BOLD, 25)
+    accent = (85, 190, 255)
+    muted = (171, 185, 202)
+    draw.text((76, 105), "HACKWITHMORTY  /  FIELD NOTES", font=small_font, fill=accent)
+
+    layouts = {
+        "pth": ("A HIDDEN STARTUP PATH", [
+            ("01  PACKAGE INSTALLED", "A poisoned wheel adds a .pth file"),
+            ("02  PYTHON STARTS", "The site module processes .pth files"),
+            ("03  IMPORT LINE EXECUTES", "A helper runs before application code"),
+            ("04  CREDENTIALS AT RISK", "No explicit framework import required"),
+        ]),
+        "credentials": ("WHAT THE PAYLOAD SOUGHT", [
+            ("ENVIRONMENT", "Tokens, keys, secrets and CI variables"),
+            ("LOCAL FILES", "Cloud, Git, Docker and package credentials"),
+            ("RUNNING PROCESSES", "Process environment data on the host"),
+            ("CLOUD IDENTITY", "Azure managed identity and CI token paths"),
+        ]),
+        "timeline": ("THE WINDOW WAS SHORT", [
+            ("20:35 UTC", "Version 1.26.1 published"),
+            ("20:41 UTC", "Elastic monitor flags the release"),
+            ("21:08 UTC", "Version 1.26.2 appears"),
+            ("WITHIN ABOUT AN HOUR", "Both malicious releases removed"),
+        ]),
+        "response": ("IF AN AFFECTED VERSION RAN", [
+            ("01  CONTAIN", "Isolate the host and stop using its environment"),
+            ("02  REBUILD", "Delete the virtual environment or image"),
+            ("03  ROTATE", "Replace every credential it could access"),
+            ("04  REVIEW", "Inspect cloud, repository and CI activity"),
+        ]),
+    }
+    heading, rows = layouts[kind]
+    draw.text((76, 245), heading, font=title_font, fill=(245, 248, 252))
+    y = 430
+    for index, (label, detail) in enumerate(rows):
+        box = (70, y, 1010, y + 270)
+        draw.rounded_rectangle(box, radius=28, fill=(17, 27, 40), outline=(43, 64, 84), width=3)
+        draw.rounded_rectangle((94, y + 38, 112, y + 232), radius=8, fill=accent if index == 0 else (65, 112, 151))
+        draw.text((150, y + 45), label, font=small_font, fill=accent)
+        wrapped, current = [], ""
+        for word in detail.split():
+            candidate = (current + " " + word).strip()
+            if draw.textbbox((0, 0), candidate, font=body_font)[2] <= 790:
+                current = candidate
+            else:
+                wrapped.append(current)
+                current = word
+        if current:
+            wrapped.append(current)
+        for line_no, line in enumerate(wrapped[:2]):
+            draw.text((150, y + 105 + line_no * 52), line, font=body_font, fill=(229, 235, 243))
+        y += 310
+    footer = "ILLUSTRATIVE EXPLANATION  •  NOT A SCREENSHOT OR OFFICIAL FOOTAGE"
+    draw.text((76, 1800), footer, font=small_font, fill=muted)
+    image.save(output, format="PNG", optimize=True)
+
+
 def stamp(seconds: float) -> str:
     milliseconds = round(seconds * 1000)
     hours, milliseconds = divmod(milliseconds, 3_600_000)
@@ -139,6 +225,7 @@ def main() -> None:
     duration = probe_audio(AUDIO)
     manifest = load_capture_manifest()
     plan = build_storyboard(manifest, duration)
+    inject_explainers(plan)
     OUT.mkdir(parents=True, exist_ok=True)
     if STILLS.exists():
         shutil.rmtree(STILLS)
@@ -153,6 +240,9 @@ def main() -> None:
                 raise FileNotFoundError(f"Source image missing: {source}")
             prepare_still(source, still_path)
             labels.append(Path(shot["path"]).name)
+        elif shot["kind"] == "graphic":
+            make_explainer_card(shot["graphic_type"], still_path)
+            labels.append("EXPLAINER: " + shot["graphic_type"])
         else:
             make_title_card(shot["text"], still_path)
             labels.append("INTERTITLE")
