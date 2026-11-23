@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      NARRATION_URL: ${{ secrets.NARRATION_URL }}
+      NARRATION_URL: ${{ secrets.AGENT_FRAMEWORK_NARRATION_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -49,7 +49,7 @@ jobs:
         if: ${{ env.NARRATION_URL == '' && inputs.capture_only != true }}
         run: |
           mkdir -p output
-          ffmpeg -y -hide_banner -loglevel error -f lavfi -i anullsrc=r=48000:cl=stereo -t 57.376 -c:a pcm_s16le output/smoke_narration.wav
+          ffmpeg -y -hide_banner -loglevel error -f lavfi -i anullsrc=r=48000:cl=stereo -t 97.404 -c:a pcm_s16le output/smoke_narration.wav
       - name: Smoke-test complete renderer without production audio
         if: ${{ env.NARRATION_URL == '' && inputs.capture_only != true }}
         env:
@@ -57,7 +57,7 @@ jobs:
         run: |
           python render_video.py
           python validate_pipeline.py --stage render > output/smoke_test_validation.json
-          rm -f output/hackwithmorty_ai_cyber_campaign.mp4 output/narration.wav output/smoke_narration.wav output/timeline.ffconcat output/render_report.json
+          rm -f output/agent_framework_pypi_supply_chain.mp4 output/narration.wav output/smoke_narration.wav output/timeline.ffconcat output/render_report.json
       - name: Render documentary with production narration
         if: ${{ env.NARRATION_URL != '' && inputs.capture_only != true }}
         run: |
@@ -66,7 +66,7 @@ jobs:
       - name: Upload documentary and source evidence
         uses: actions/upload-artifact@v4
         with:
-          name: hackwithmorty-documentary
+          name: agent-framework-pypi-documentary
           path: |
             capture_manifest.json
             screenshots/
