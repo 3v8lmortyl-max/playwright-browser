@@ -4,7 +4,7 @@ import argparse, hashlib, json, re, subprocess
 from pathlib import Path
 
 MANIFEST = Path("capture_manifest.json")
-VIDEO = Path("output/hackwithmorty_ai_cyber_campaign.mp4")
+VIDEO = Path("output/agent_framework_pypi_supply_chain.mp4")
 REPORT = Path("output/render_report.json")
 STORYBOARD = Path("output/storyboard.json")
 CAPTIONS = Path("output/captions.srt")
@@ -12,7 +12,7 @@ CAPTIONS = Path("output/captions.srt")
 def probe(path: Path) -> dict:
     result = subprocess.run([
         "ffprobe", "-v", "error", "-show_entries",
-        "format=duration,size:stream=codec_type,width,height", "-of", "json", str(path),
+        "format=duration,size:stream=codec_type,width,height,r_frame_rate,sample_rate,channels", "-of", "json", str(path),
     ], check=True, capture_output=True, text=True)
     return json.loads(result.stdout)
 
@@ -78,6 +78,8 @@ def validate_render() -> dict:
         raise SystemExit("MP4 must contain exactly one video stream and at least one audio stream.")
     if (videos[0].get("width"), videos[0].get("height")) != (1080, 1920):
         raise SystemExit(f"Unexpected dimensions: {videos[0].get('width')}x{videos[0].get('height')}")
+    if videos[0].get("r_frame_rate") != "24/1":
+        raise SystemExit(f"Unexpected frame rate: {videos[0].get('r_frame_rate')}")
     actual, expected_duration = float(metadata["format"]["duration"]), float(report["audio_duration_seconds"])
     if abs(actual - expected_duration) > 0.75:
         raise SystemExit(f"Duration mismatch: video={actual:.3f}s narration={expected_duration:.3f}s")
