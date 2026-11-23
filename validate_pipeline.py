@@ -1,6 +1,6 @@
 """Fail-fast checks for capture output and rendered video."""
 from __future__ import annotations
-import argparse, hashlib, json, subprocess
+import argparse, hashlib, json, re, subprocess
 from pathlib import Path
 
 MANIFEST = Path("capture_manifest.json")
@@ -45,6 +45,11 @@ def validate_capture() -> dict:
             errors.append(f"Unexpected dimensions for {path.name}: {asset.get('width')}x{asset.get('height')}")
         if asset.get("sha256") and sha256_file(path) != asset["sha256"]:
             errors.append(f"SHA-256 mismatch: {path.name}")
+        visible = asset.get("visible_text", "")
+        if re.search(r"We Care About Your Privacy|Accept all cookies|Accept only essential cookies", visible, re.I):
+            errors.append(f"Cookie/privacy overlay still visible: {path.name}")
+        if len(visible.strip()) < 35:
+            errors.append(f"Insufficient visible page text for evidence: {path.name}")
     if errors:
         raise SystemExit("Capture validation failed:\n- " + "\n- ".join(errors))
     return {"status": "passed", "assets": len(assets), "dimensions": "1080x1920"}
