@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: documentary-pipeline-\${{ github.ref }}
+  group: documentary-pipeline-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      NARRATION_URL: \${{ secrets.NARRATION_URL }}
+      NARRATION_URL: ${{ secrets.NARRATION_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
       - name: Validate captured sources
         run: python validate_pipeline.py --stage capture
       - name: Render documentary
-        if: \${{ env.NARRATION_URL != '' && inputs.capture_only != true }}
+        if: ${{ env.NARRATION_URL != '' && inputs.capture_only != true }}
         run: |
           python render_video.py
           python validate_pipeline.py --stage render
