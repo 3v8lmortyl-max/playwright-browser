@@ -1,6 +1,6 @@
 """Render a vertical, evidence-led documentary from captured source images."""
 from __future__ import annotations
-import json, os, shutil, subprocess, urllib.request
+import json, os, shutil, subprocess, urllib.request, wave
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from storyboard import build_storyboard, load_capture_manifest
@@ -8,7 +8,7 @@ from storyboard import build_storyboard, load_capture_manifest
 W, H, FPS = 1080, 1920, 24
 OUT = Path("output")
 STILLS = OUT / "stills"
-VIDEO = OUT / "hackwithmorty_ai_cyber_campaign.mp4"
+VIDEO = OUT / "agent_framework_pypi_supply_chain.mp4"
 AUDIO = OUT / "narration.wav"
 BG, WHITE = (5, 7, 12), (245, 247, 250)
 FONT_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -43,7 +43,7 @@ def download_narration() -> None:
         raise SystemExit("Missing NARRATION_URL repository secret.")
     if not url.startswith("https://"):
         raise SystemExit("NARRATION_URL must use HTTPS.")
-    partial = AUDIO.with_suffix(".wav.part")
+    partial = AUDIO.with_suffix(".download.part")
     request = urllib.request.Request(url, headers={"User-Agent": "HackWithMorty-Documentary/1.0"})
     try:
         with urllib.request.urlopen(request, timeout=90) as response, partial.open("wb") as target:
@@ -54,7 +54,22 @@ def download_narration() -> None:
                 target.write(chunk)
         if partial.stat().st_size < 10_000:
             raise RuntimeError("Narration download is empty or incomplete")
-        partial.replace(AUDIO)
+        # Accept either HeyGen raw PCM (48 kHz mono signed 16-bit) or WAV.
+        with partial.open("rb") as source:
+            is_wav = source.read(4) == b"RIFF"
+        if is_wav:
+            partial.replace(AUDIO)
+        else:
+            with wave.open(str(AUDIO), "wb") as wav_out, partial.open("rb") as raw:
+                wav_out.setnchannels(1)
+                wav_out.setsampwidth(2)
+                wav_out.setframerate(48000)
+                while True:
+                    chunk = raw.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    wav_out.writeframesraw(chunk)
+            partial.unlink(missing_ok=True)
     finally:
         partial.unlink(missing_ok=True)
 
