@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 import json
 from pathlib import Path
+import re
 
 BEATS = [
     {"start": 0.25, "caption_end": 3.40, "text": "Artificial intelligence is changing cybersecurity."},
@@ -43,6 +44,22 @@ def _allocate_counts(total: int, weights: list[float]) -> list[int]:
         counts[index] += 1
     return counts
 
+STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "been", "but", "by", "can",
+    "did", "does", "for", "from", "had", "has", "have", "he", "her", "his",
+    "how", "i", "if", "in", "into", "is", "it", "its", "me", "more", "most",
+    "not", "of", "on", "or", "our", "out", "she", "so", "than", "that",
+    "the", "their", "them", "there", "they", "this", "to", "under", "up",
+    "us", "was", "were", "what", "when", "where", "which", "who", "will",
+    "with", "would", "you", "your",
+}
+
+def _tokens(text: str) -> set[str]:
+    return {
+        token for token in re.findall(r"[a-z0-9]{2,}", text.lower())
+        if token not in STOP_WORDS
+    }
+
 def build_storyboard(manifest: dict[str, Any], duration: float) -> dict[str, Any]:
     if duration <= 0:
         raise ValueError("Narration duration must be positive")
@@ -55,6 +72,36 @@ def build_storyboard(manifest: dict[str, Any], duration: float) -> dict[str, Any
     weights = [max(0.05, boundaries[i + 1] - boundaries[i]) for i in range(len(BEATS))]
     counts = _allocate_counts(len(assets), weights)
 
+    # Match each viewport capture to the narration beat using extracted visible
+    # text, page title and URL. A stable capture-order tie-breaker keeps output
+    # deterministic when a page contains little readable text.
+    remaining = list(range(len(assets)))
+    assigned: dict[int, list[tuple[dict[str, Any], float, list[str]]]] = {}
+    for beat_index, count in enumerate(counts):
+        if count == 0:
+            assigned[beat_index] = []
+            continue
+        beat_terms = _tokens(BEATS[beat_index]["text"])
+        candidates = []
+        for asset_index in remaining:
+            asset = assets[asset_index]
+            source_text = " ".join([
+                asset.get("visible_text", ""),
+                asset.get("source_title", ""),
+                asset.get("source_url", ""),
+            ])
+            matched = sorted(beat_terms & _tokens(source_text))
+            score = len(matched) / max(1, len(beat_terms))
+            candidates.append((score, asset_index, matched))
+        candidates.sort(key=lambda item: (-item[0], item[1]))
+        selected = candidates[:count]
+        selected.sort(key=lambda item: item[1])
+        assigned[beat_index] = [
+            (assets[index], score, matched) for score, index, matched in selected
+        ]
+        selected_indices = {index for _, index, _ in selected}
+        remaining = [index for index in remaining if index not in selected_indices]
+
     timeline = []
     asset_index = 0
     for beat_index, beat in enumerate(BEATS):
@@ -64,8 +111,7 @@ def build_storyboard(manifest: dict[str, Any], duration: float) -> dict[str, Any
                              "text": beat["text"], "beat_index": beat_index})
             continue
         slot = (end - start) / count
-        for slot_index in range(count):
-            asset = assets[asset_index]
+        for slot_index, (asset, score, matched) in enumerate(assigned[beat_index]):
             asset_index += 1
             timeline.append({
                 "kind": "image",
@@ -77,8 +123,10 @@ def build_storyboard(manifest: dict[str, Any], duration: float) -> dict[str, Any
                 "source_title": asset.get("source_title", ""),
                 "scroll_y": asset.get("scroll_y", 0),
                 "beat_index": beat_index,
+                "relevance_score": round(score, 3),
+                "matched_terms": matched,
             })
-    if asset_index != len(assets):
+    if asset_index != len(assets) or remaining:
         raise AssertionError(f"Planner used {asset_index} of {len(assets)} assets")
 
     captions = []
