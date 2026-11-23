@@ -1,0 +1,17 @@
+One poisoned software release. A hidden credential stealer. And a route into cloud systems.
+
+On November seventeenth, two malicious versions of Microsoft's Agent Framework appeared on the Python Package Index: versions one point two six point one and one point two six point two.
+
+They looked like routine updates. But each carried a Python dot P T H startup hook — code that can run whenever Python starts, even if the application never imports the package.
+
+The payload searched environment variables, credential files and running processes. Researchers also found attempts to obtain Azure managed identity tokens. The second release expanded its reach to GitHub Actions open identity tokens.
+
+The timeline was measured in minutes. Version one point two six point one appeared at twenty thirty-five U T C. A second release followed at twenty-one oh-eight. PyPI quarantined the first, then the attacker pushed the second. Both were removed that evening.
+
+The GitHub advisory identifies both releases as malicious. Version one point two six point zero is listed as the last clean release. Researchers have not publicly attributed the attack to a known group, and the number of compromised environments remains unknown.
+
+This is why software supply chains are security boundaries. An AI framework does not need to be breached through its model. A poisoned dependency can reach the credentials around it.
+
+If you installed either affected version, treat that environment as exposed: rebuild it, rotate reachable credentials, and review cloud and CI activity.
+
+The next security incident may not begin with a suspicious email. It may begin with an update button.
