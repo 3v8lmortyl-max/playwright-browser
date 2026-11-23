@@ -1,4 +1,10 @@
-# Primary documentary source
-https://audiovisual.ec.europa.eu/en/media/video/I-298222
-# Independent reporting page
-https://live.euronext.com/en/financial-news/eu-commission-confirms-it-was-targeted-cyberattack-through-use-ai-tools
+# Primary vulnerability advisory
+https://github.com/advisories/GHSA-764m-3ppc-5m73
+# Independent technical analysis: startup hook and payload
+https://research.jfrog.com/post/agent-framework-hijack/
+# Cloud and CI credential impact analysis
+https://www.wiz.io/blog/malicious-version-of-microsofts-agent-framework-published-to-pypi
+# Detection timeline and reverse engineering
+https://www.elastic.co/security-labs/threat-command/we-caught-the-agent-framework-pypi-compromise-six-minutes-after-it-published
+# Python's official documentation for .pth startup behavior
+https://docs.python.org/3/library/site.html#pth-files
