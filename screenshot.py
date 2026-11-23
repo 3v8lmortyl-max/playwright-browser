@@ -10,7 +10,7 @@ from playwright.sync_api import sync_playwright
 TARGETS_FILE = Path("capture_targets.txt")
 OUTPUT_DIR = Path("screenshots")
 MANIFEST = Path("capture_manifest.json")
-VIEWPORT, DPR, MAX_CAPTURES_PER_PAGE = {"width": 432, "height": 768}, 2.5, 12
+VIEWPORT, DPR, MAX_CAPTURES_PER_PAGE = {"width": 432, "height": 768}, 2.5, 2
 
 def safe_host(url: str) -> str:
     return re.sub(r"[^a-zA-Z0-9.-]+", "_", urlparse(url).netloc or "page")
@@ -100,9 +100,7 @@ def main() -> None:
                 )
                 max_scroll = max(0, page_height - VIEWPORT["height"])
                 count = min(MAX_CAPTURES_PER_PAGE, max(1, math.ceil(max(1, page_height) / 650)))
-                positions = [0] if count == 1 else [
-                    round(i * max_scroll / (count - 1)) for i in range(count)
-                ]
+                positions = [0] if count == 1 else [0, round(max_scroll * 0.35)]
                 for capture_index, scroll_y in enumerate(positions, start=1):
                     page.evaluate("(y) => window.scrollTo(0, y)", scroll_y)
                     page.wait_for_timeout(300)
