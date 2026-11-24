@@ -36,6 +36,51 @@ jobs:
           print(f"Verified {manifest['original_filename']}: {actual_hash}, {len(payload)} bytes")
           PY
 
+      - name: Record runner-side file metadata
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import stat
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path("provenance_test")
+
+          def utc_ns(value):
+              seconds, nanoseconds = divmod(value, 1_000_000_000)
+              whole_seconds = datetime.fromtimestamp(seconds, tz=timezone.utc)
+              return whole_seconds.strftime("%Y-%m-%dT%H:%M:%S") + f".{nanoseconds:09d}Z"
+
+          observations = []
+          for filename in ("provenance.txt", "manifest.json"):
+              path = root / filename
+              metadata = path.lstat()
+              is_symlink = stat.S_ISLNK(metadata.st_mode)
+              if is_symlink or not stat.S_ISREG(metadata.st_mode):
+                  raise SystemExit(f"Refusing unexpected file type: {filename}")
+
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              observations.append({
+                  "filename": filename,
+                  "sha256": digest,
+                  "size_bytes": metadata.st_size,
+                  "uid": metadata.st_uid,
+                  "gid": metadata.st_gid,
+                  "mode_octal": format(stat.S_IMODE(metadata.st_mode), "04o"),
+                  "mtime_utc": utc_ns(metadata.st_mtime_ns),
+                  "ctime_utc": utc_ns(metadata.st_ctime_ns),
+                  "file_type": "regular_file",
+                  "is_symlink": is_symlink,
+              })
+
+          (root / "runner_metadata.json").write_text(
+              json.dumps(observations, indent=2) + "\\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(observations, indent=2))
+          PY
+
       - name: Upload provenance test artifact
         uses: actions/upload-artifact@v4
         with:
