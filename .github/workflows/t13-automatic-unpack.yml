@@ -2,6 +2,10 @@ name: T13 Automatic Archive Unpack Probe
 
 on:
   workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - '.github/workflows/t13-automatic-unpack.yml'
 
 permissions:
   contents: read
@@ -18,14 +22,14 @@ jobs:
           ROOT="$RUNNER_TEMP/t13-auto-unpack"
           mkdir -p "$ROOT"
           printf '%s\n' "$ROOT" > "$RUNNER_TEMP/t13-root-path"
-          python3 - <<'PY'
-          import base64, hashlib, pathlib
+          python3 - "$ROOT" <<'PY'
+          import base64, hashlib, pathlib, sys
           encoded = "UEsDBBQAAAAAAAAAIQBDX0ZNDQAAAA0AAAALAAAAc2NyZWVuc2hvdHMuLi90MTMtY2FuYXJ5UEsDBBQAAAAIAAMseF0bslNbbgAAAIkAAAAVAAAAc2NyZWVuc2hvdHMvcHJvYmUudHh0JYzLDcJADAXvVPEKAKQoN+qggcfGSyz2E9mGkO5ZidscZuY+zVhptYg7EhvtuEEzYlVHyDfAbROaQxsI10fR9kRM8+VvY1GTFH0Qc4iB7+iVoQmjNqbQ3s7gqC2t+hH4UcfjhZ2O3EvpuyzX0w9QSwECFAMUAAAAAAAAACEAQ19GTQ0AAAANAAAACwAAAAAAAAAAAAAA/6EAAAAAc2NyZWVuc2hvdHNQSwECFAMUAAAACAADLHhdG7JTW24AAACJAAAAFQAAAAAAAAAAAAAAgAE2AAAAc2NyZWVuc2hvdHMvcHJvYmUudHh0UEsFBgAAAAACAAIAfAAAANcAAAAAAA=="
           data = base64.b64decode(encoded)
           expected = "1073cd19652c733840c78812e77452bbe62575f36360c85b31f6ca76a4d70709"
           actual = hashlib.sha256(data).hexdigest()
           assert actual == expected, (actual, expected)
-          root = pathlib.Path("$RUNNER_TEMP") / "t13-auto-unpack"
+          root = pathlib.Path(sys.argv[1])
           (root / "probe.zip").write_bytes(data)
           print(f"PROBE_SHA256={actual}")
           print(f"PROBE_SIZE={len(data)}")
