@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""T15: isolated ZIP extraction tests against pre-existing symlinks.
+
+All writes are confined to a fresh directory under --root. The "outside"
+canary is outside the extraction root but remains inside this test sandbox.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+PAYLOAD = b"T15_PREEXISTING_SYMLINK_REDIRECTION_CANARY\n"
+MARKER = b"CANARY_MARKER_ORIGINAL\n"
+
+
+def sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def build_case(base: Path, scenario: str) -> tuple[Path, Path, Path]:
+    dest = base / "extract"
+    canary = base / "canary"
+    dest.mkdir(parents=True)
+    canary.mkdir()
+    (canary / "marker.txt").write_bytes(MARKER)
+
+    if scenario == "direct-directory":
+        (dest / "screenshots").symlink_to("../canary")
+        member = "screenshots/probe.txt"
+        external = canary / "probe.txt"
+    elif scenario == "nested-directory":
+        screenshots = dest / "screenshots"
+        screenshots.mkdir()
+        (screenshots / "cache").symlink_to("../../canary")
+        member = "screenshots/cache/probe.txt"
+        external = canary / "probe.txt"
+    elif scenario == "symlink-chain":
+        (base / "bridge").symlink_to("canary")
+        (dest / "screenshots").symlink_to("../bridge")
+        member = "screenshots/probe.txt"
+        external = canary / "probe.txt"
+    elif scenario == "final-file":
+        screenshots = dest / "screenshots"
+        screenshots.mkdir()
+        target = canary / "marker.txt"
+        relative_target = os.path.relpath(target, screenshots)
+        (screenshots / "probe.txt").symlink_to(relative_target)
+        member = "screenshots/probe.txt"
+        external = target
+    else:
+        raise ValueError(scenario)
+
+    archive = base / "probe.zip"
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(member, PAYLOAD)
+    return archive, dest, external
+
+
+def root_extract(helper: Path, extractor: str, archive: Path, dest: Path, log: Path) -> int:
+    cmd = [
+        "sudo", "-n", sys.executable, str(helper),
+        "--extractor", extractor,
+        "--archive", str(archive),
+        "--dest", str(dest),
+    ]
+    with log.open("w", encoding="utf-8") as output:
+        proc = subprocess.run(cmd, stdout=output, stderr=subprocess.STDOUT, text=True)
+    return proc.returncode
+
+
+def run_case(root: Path, helper: Path, extractor: str, scenario: str) -> dict:
+    base = root / extractor / scenario
+    base.mkdir(parents=True)
+    archive, dest, external = build_case(base, scenario)
+    before = external.read_bytes() if external.exists() else None
+    helper_log = base / "root-extractor.log"
+    rc = root_extract(helper, extractor, archive, dest, helper_log)
+    after = external.read_bytes() if external.exists() else None
+    redirected = after == PAYLOAD and (scenario != "final-file" or before != after)
+
+    result = {
+        "extractor": extractor,
+        "scenario": scenario,
+        "helper_exit": rc,
+        "external_target": str(external),
+        "external_target_exists": external.exists(),
+        "external_target_sha256": sha256(after) if after is not None else None,
+        "external_write_detected": redirected,
+        "target_uid": external.stat().st_uid if external.exists() else None,
+        "target_gid": external.stat().st_gid if external.exists() else None,
+        "target_mode": oct(external.stat().st_mode & 0o777) if external.exists() else None,
+        "dest_symlink_preserved": (
+            (dest / "screenshots").is_symlink()
+            or (dest / "screenshots" / "cache").is_symlink()
+        ),
+        "root_log": str(helper_log),
+    }
+    print(
+        f"RESULT extractor={extractor} scenario={scenario} "
+        f"helper_exit={rc} OUTSIDE_WRITE={'YES' if redirected else 'NO'} "
+        f"target_uid={result['target_uid']} target_gid={result['target_gid']} "
+        f"symlink_preserved={result['dest_symlink_preserved']}"
+    )
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--root-helper", required=True)
+    args = parser.parse_args()
+
+    root = Path(args.root).resolve()
+    helper = Path(args.root_helper).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    evidence = root / "evidence"
+    evidence.mkdir()
+    print(f"ORCHESTRATOR_UID={os.geteuid()} GID={os.getegid()}")
+    print(f"ROOT={root}")
+    print(f"ROOT_HELPER={helper}")
+
+    check = subprocess.run(["sudo", "-n", "true"], capture_output=True, text=True)
+    if check.returncode != 0:
+        print("FATAL: passwordless sudo unavailable", file=sys.stderr)
+        print(check.stderr, file=sys.stderr)
+        return 2
+
+    results = []
+    for extractor in ("unzip", "zipfile"):
+        for scenario in ("direct-directory", "nested-directory", "symlink-chain", "final-file"):
+            results.append(run_case(root, helper, extractor, scenario))
+
+    summary = {
+        "orchestrator_uid": os.geteuid(),
+        "cases": results,
+        "outside_write_count": sum(r["external_write_detected"] for r in results),
+        "all_root_helpers_succeeded": all(r["helper_exit"] == 0 for r in results),
+    }
+    (evidence / "results.json").write_text(json.dumps(summary, indent=2) + "\n")
+    lines = [
+        "T15 ROOT-VERIFIED PRE-EXISTING SYMLINK MATRIX",
+        f"ORCHESTRATOR_UID={summary['orchestrator_uid']}",
+        f"ALL_ROOT_HELPERS_SUCCEEDED={summary['all_root_helpers_succeeded']}",
+        f"OUTSIDE_WRITE_COUNT={summary['outside_write_count']}/{len(results)}",
+    ]
+    lines += [
+        f"{r['extractor']} / {r['scenario']}: "
+        f"outside_write={'YES' if r['external_write_detected'] else 'NO'}, "
+        f"helper_exit={r['helper_exit']}, target_uid={r['target_uid']}"
+        for r in results
+    ]
+    (evidence / "SUMMARY.txt").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
+    return 0 if summary["all_root_helpers_succeeded"] else 3
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
