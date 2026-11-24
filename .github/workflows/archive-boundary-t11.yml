@@ -12,6 +12,7 @@ on:
       - "security/archive-boundary/t11_privileged_helper.py"
       - "security/archive-boundary/t11_privileged_wrapper.sh"
       - "security/archive-boundary/T11_README.md"
+      - "security/archive-boundary/t11_verify_evidence.py"
       - ".github/workflows/archive-boundary-t11.yml"
 
 # actions: read is required to download the workflow artifact; nothing else.
@@ -73,3 +74,25 @@ jobs:
           path: security/archive-boundary/evidence-out-t11/
           if-no-files-found: error
           retention-days: 14
+
+  # Independently download the uploaded evidence artifact on a fresh runner and
+  # verify it (completeness, original-artifact provenance, SHA-256 of outputs).
+  verify-evidence:
+    needs: timestamp-provenance
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download T11 evidence artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: archive-boundary-t11-evidence-${{ github.run_id }}
+          path: downloaded-evidence
+
+      - name: Verify downloaded evidence
+        run: python3 security/archive-boundary/t11_verify_evidence.py downloaded-evidence
