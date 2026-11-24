@@ -43,6 +43,8 @@ jobs:
             {
               echo "===== $extractor BEFORE ====="
               id
+              echo "ROOT_IDENTITY:"
+              sudo -n id
               stat -c 'dest=%n type=%F uid=%u gid=%g mode=%a' "$dest"
               stat -c 'link=%n type=%F uid=%u gid=%g mode=%a target=%N' "$dest/screenshots"
               cat "$canary/marker.txt"
@@ -64,11 +66,11 @@ jobs:
 
             {
               echo "===== $extractor AFTER (extract_exit=$rc) ====="
-              if [ -e "$canary/screenshots/probe.txt" ]; then
+              if [ -e "$canary/probe.txt" ]; then
                 echo "REDIRECTED_WRITE=YES"
-                stat -c 'target=%n uid=%u gid=%g mode=%a size=%s' "$canary/screenshots/probe.txt"
-                sha256sum "$canary/screenshots/probe.txt"
-                cat "$canary/screenshots/probe.txt"
+                stat -c 'target=%n uid=%u gid=%g mode=%a size=%s' "$canary/probe.txt"
+                sha256sum "$canary/probe.txt"
+                cat "$canary/probe.txt"
               else
                 echo "REDIRECTED_WRITE=NO"
               fi
@@ -89,7 +91,7 @@ jobs:
 
           {
             echo "T14 summary"
-            echo "This probe seeds a symlink inside each extraction destination before root extraction."
+            echo "This probe seeds a symlink inside each extraction destination before root extraction. The extractor commands are invoked with sudo; verify ROOT_IDENTITY in each BEFORE block. Redirect target is ../canary/probe.txt."
             grep -H 'REDIRECTED_WRITE\|EXTRACTOR_EXIT\|DEST_SYMLINK_PRESERVED' "$ROOT"/evidence/*-after.txt || true
           } | tee "$ROOT/evidence/SUMMARY.txt"
 
