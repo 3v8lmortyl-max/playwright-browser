@@ -78,6 +78,8 @@ jobs:
               json.dumps(observations, indent=2) + "\n",
               encoding="utf-8",
           )
+          metadata_path = root / "runner_metadata.json"
+          json.loads(metadata_path.read_text(encoding="utf-8"))
           print(json.dumps(observations, indent=2))
           PY
 
