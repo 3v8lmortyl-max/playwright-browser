@@ -1,0 +1,115 @@
+{
+  "investigation": "T12 historical runtime telemetry recovery",
+  "classification_note": "Only facts read from existing historical records are listed. 'upstream' means the original GitHub-hosted runner and artifacts, not the historical /mnt/data runtime. No /mnt/data runtime telemetry was recovered.",
+  "confidence_legend": {
+    "CONFIRMED": "direct historical evidence establishes the fact",
+    "STRONGLY SUPPORTED": "multiple independent historical observations support it",
+    "CONSISTENT": "reproduced experimentally but not historically established",
+    "UNKNOWN": "no sufficient evidence"
+  },
+  "recovered": [
+    {
+      "id": "R01", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "Timing of the original job 137562438892 (run 45136043351, main@6732c05, runner 'GitHub Actions 1000000771')",
+      "value": {"capture_source_pages": ["2026-11-23T08:07:54Z", "2026-11-23T08:08:14Z"],
+                "screenshot_py_started": "2026-11-23T08:07:54.077Z",
+                "render": ["2026-11-23T08:08:14Z", "2026-11-23T08:08:38Z"],
+                "upload_artifact": ["2026-11-23T08:08:38.805Z", "2026-11-23T08:08:41.503Z"]},
+      "sources": ["S06", "S07"]
+    },
+    {
+      "id": "R02", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "The original job log has no per-file capture times: every CAPTURED/SOURCE/MANIFEST line is stamped 2026-11-23T08:08:14.742Z, when screenshot.py's buffered stdout was flushed at exit",
+      "sources": ["S07"]
+    },
+    {
+      "id": "R03", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "Central directory of original artifact 14799922102 (32 entries, no extra fields, all mode 0100644). DOS timestamps as stored (naive):",
+      "value": [
+        ["2026-11-23T08:08:14", 12156, "capture_manifest.json"],
+        ["2026-11-23T08:07:56", 209306, "screenshots/01_github.com_01.png"],
+        ["2026-11-23T08:07:58", 415105, "screenshots/01_github.com_02.png"],
+        ["2026-11-23T08:08:00", 324025, "screenshots/02_research.jfrog.com_01.png"],
+        ["2026-11-23T08:08:02", 388476, "screenshots/02_research.jfrog.com_02.png"],
+        ["2026-11-23T08:08:04", 265577, "screenshots/03_www.wiz.io_01.png"],
+        ["2026-11-23T08:08:06", 212517, "screenshots/03_www.wiz.io_02.png"],
+        ["2026-11-23T08:08:10", 163995, "screenshots/04_www.elastic.co_01.png"],
+        ["2026-11-23T08:08:10", 213007, "screenshots/04_www.elastic.co_02.png"],
+        ["2026-11-23T08:08:14", 301971, "screenshots/05_docs.python.org_01.png"],
+        ["2026-11-23T08:08:14", 263500, "screenshots/05_docs.python.org_02.png"],
+        ["2026-11-23T08:08:38", 5038198, "output/agent_framework_pypi_supply_chain.mp4"],
+        ["2026-11-23T08:08:20", 1951, "output/captions.srt"],
+        ["2026-11-23T08:08:14", 9350852, "output/narration.wav"],
+        ["2026-11-23T08:08:38", 321, "output/render_report.json"],
+        ["2026-11-23T08:08:16", 206199, "output/stills/shot_0001.png"],
+        ["2026-11-23T08:08:16", 259610, "output/stills/shot_0002.png"],
+        ["2026-11-23T08:08:16", 310199, "output/stills/shot_0003.png"],
+        ["2026-11-23T08:08:16", 71918, "output/stills/shot_0004.png"],
+        ["2026-11-23T08:08:16", 409574, "output/stills/shot_0005.png"],
+        ["2026-11-23T08:08:18", 78446, "output/stills/shot_0006.png"],
+        ["2026-11-23T08:08:18", 164651, "output/stills/shot_0007.png"],
+        ["2026-11-23T08:08:18", 66262, "output/stills/shot_0008.png"],
+        ["2026-11-23T08:08:18", 209661, "output/stills/shot_0009.png"],
+        ["2026-11-23T08:08:18", 213936, "output/stills/shot_0010.png"],
+        ["2026-11-23T08:08:18", 370997, "output/stills/shot_0011.png"],
+        ["2026-11-23T08:08:20", 286091, "output/stills/shot_0012.png"],
+        ["2026-11-23T08:08:20", 71503, "output/stills/shot_0013.png"],
+        ["2026-11-23T08:08:20", 249161, "output/stills/shot_0014.png"],
+        ["2026-11-23T08:08:20", 9920, "output/storyboard.json"],
+        ["2026-11-23T08:08:20", 266962, "output/storyboard_contact_sheet.jpg"],
+        ["2026-11-23T08:08:20", 1640, "output/timeline.ffconcat"]
+      ],
+      "sources": ["S08"]
+    },
+    {
+      "id": "R04", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "capture_manifest.json, written on the original runner, records captured_at 2026-11-23T08:08:14.741451+00:00. Its own DOS timestamp in the artifact is 08:08:14.",
+      "sources": ["S08"]
+    },
+    {
+      "id": "R05", "scope": "upstream", "confidence": "STRONGLY SUPPORTED", "kind": "inference from R01, R03 and R04",
+      "fact": "The artifact's DOS timestamps record each file's modification time on the original runner, in UTC, at 2-second resolution. They do not record packaging time. Therefore screenshots/01_github.com_01.png was last written on the runner during [2026-11-23T08:07:56Z, 08:07:58Z), about 2 s after screenshot.py started.",
+      "basis": [
+        "DOS times follow pipeline order: screenshots 08:07:56-08:08:14, then the manifest at 08:08:14, then the stills from render at 08:08:16-20, then the mp4 at 08:08:38. Packaging ran 08:08:38.8-08:08:41.",
+        "The manifest's DOS time (08:08:14) equals its internally recorded UTC captured_at (08:08:14.741) at 2-s resolution, so the producer's DOS local time was UTC.",
+        "Whether the 2-s field truncates or rounds is implementation-specific; the interval assumes truncation."
+      ],
+      "sources": ["S06", "S08"]
+    },
+    {
+      "id": "R06", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "Original capture_manifest.json record for the PNG",
+      "value": {"asset_id": "source-01-capture-01", "path": "screenshots/01_github.com_01.png",
+                "sha256": "dd0ff1aa6371838a1bd9d941b4b43a1596a01974c202a6967416f20916f61f51", "bytes": 209306,
+                "width": 1080, "height": 1920, "source_url": "https://github.com/advisories/GHSA-764m-3ppc-5m73",
+                "http_status": 200, "scroll_y": 0, "cookie_consent_action": "no_consent_control_found"},
+      "sources": ["S08"]
+    },
+    {
+      "id": "R07", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "A SECOND retained artifact holds byte-identical PNG content: artifact 14797203454 ('agent-framework-pypi-documentary', run 45130379294, main@b16f992, created 2026-11-23T07:22:35Z, 5,519,442 bytes, digest sha256:ed20670546e1de1f41e2042012570e34c08662472a867064ed4352aa8654ddb3) contains screenshots/01_github.com_01.png with SHA-256 dd0ff1aa…f61f51. That entry's DOS time is 2026-11-23T07:21:58; the artifact's manifest captured_at is 07:22:14.910583Z.",
+      "implication": "The PNG hash alone does not identify artifact 14799922102 as the source of the historical file. Attributing the file to 14799922102 needs independent evidence, such as a historical download record, archive hash or matching restored mtime.",
+      "sources": ["S09", "S10"]
+    },
+    {
+      "id": "R08", "scope": "upstream", "confidence": "CONFIRMED",
+      "fact": "None of the other 23 retained non-experimental artifacts (hackwithmorty-documentary, hackwithmorty-ai-cyber-campaign, website-screenshot) contains screenshots/01_github.com_01.png. Deleted or expired artifacts and copies outside GitHub cannot be checked.",
+      "sources": ["S09", "S19"]
+    }
+  ],
+  "user_provided_not_reverified": {
+    "note": "These facts come from the user's prompt about the historical runtime. T12 could not access that runtime to re-verify them. They are used as established inputs, not as T12 recoveries.",
+    "values": {"file": "/mnt/data/gh_demo/screenshots/01_github.com_01.png", "uid": 0, "gid": 1001, "mode": "0644", "size": 209306,
+               "sha256": "dd0ff1aa6371838a1bd9d941b4b43a1596a01974c202a6967416f20916f61f51", "dimensions": "1080x1920",
+               "device": 27, "inode": 262311, "mount_id": 52, "parent": {"path": "/mnt/data/gh_demo", "uid": 0, "gid": 1001, "mode": "2755"},
+               "python_process": {"pid": 325, "uid": 1000, "gid": 1000, "mount_namespace": "mnt:[4026532181]"}}
+  },
+  "not_recovered": [
+    "Historical PNG mtime", "Historical PNG ctime", "Historical PNG birth time", "Historical PNG atime",
+    "screenshots/ directory UID/GID/mode/setgid/timestamps/creation order",
+    "gh_demo/ creation record, its timestamps and the metadata of /mnt/data",
+    "Parent process of PID 325; any extraction, copy, download or materialization process tied to the path",
+    "Filesystem type, mount options, overlay layers, grpid and user-namespace UID/GID maps for /mnt/data",
+    "Any record of which archive (if any) was downloaded into the historical runtime"
+  ]
+}

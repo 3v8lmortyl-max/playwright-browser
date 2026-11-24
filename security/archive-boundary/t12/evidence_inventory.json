@@ -1,0 +1,33 @@
+{
+  "investigation": "T12 historical runtime telemetry recovery",
+  "collected_utc": "2026-11-24T04:34:01Z",
+  "environment": "Claude Code cloud container (mount namespace mnt:[4026531832]); not the historical ChatGPT runtime",
+  "availability_legend": {
+    "ACCESSIBLE": "read and examined",
+    "ACCESSIBLE_VIA_CI": "not reachable from this sandbox; read through a read-only GitHub Actions job",
+    "NOT_PRESENT": "location exists or was checked, but holds no relevant data",
+    "INACCESSIBLE": "could not be reached; exact failure recorded",
+    "NOT_SEARCHED": "available in the session but deliberately not searched; reason recorded"
+  },
+  "sources": [
+    {"id": "S01", "source": "Git repository 3v8lmortyl-max/playwright-browser: every commit on every ref (57 commits; provenance-test, origin/main@6732c05, ccr-6065075e-t9qa9c)", "availability": "ACCESSIBLE", "historical": false, "result": "No historical runtime telemetry. Outside the T9-T11 investigation code, no file at any commit mentions 262311, 4026532181, gh_demo, /mnt/data, 01_github.com_01, mountinfo, statx, ls -ln, getfattr, findmnt, namei, df -T or PID 325."},
+    {"id": "S02", "source": "Git commit messages, all refs", "availability": "ACCESSIBLE", "historical": false, "result": "No matches outside T-suite commits."},
+    {"id": "S03", "source": "Unreachable git objects (git fsck --unreachable --no-reflogs)", "availability": "ACCESSIBLE", "historical": false, "result": "4 blobs: three Python bytecode files (__pycache__) and one .gitignore draft, all staged and discarded during this session. Not historical."},
+    {"id": "S04", "source": "GitHub code search (user:3v8lmortyl-max) for gh_demo, 262311, 4026532181, 01_github.com_01.png", "availability": "ACCESSIBLE", "historical": false, "result": "0 results for every term. Limitation: code search indexes the default branch only."},
+    {"id": "S05", "source": "GitHub issue and pull-request search (repo) for gh_demo, mtime, 01_github", "availability": "ACCESSIBLE", "historical": false, "result": "0 issues and 0 pull requests."},
+    {"id": "S06", "source": "Original workflow run 45136043351 / job 137562438892: step timing metadata", "availability": "ACCESSIBLE", "historical": true, "scope": "upstream (original GitHub-hosted runner), not /mnt/data", "result": "Capture step 08:07:54-08:08:14Z; render 08:08:14-08:08:38Z; upload 08:08:38-08:08:41Z."},
+    {"id": "S07", "source": "Original job 137562438892 log", "availability": "ACCESSIBLE", "historical": true, "scope": "upstream", "result": "All CAPTURED lines are stamped 2026-11-23T08:08:14.742Z: block-buffered stdout flushed at process exit, so there are no per-file capture times. Upload log confirms 32 files and digest cafc11...f65."},
+    {"id": "S08", "source": "Original artifact 14799922102: full central directory and capture_manifest.json (read-only T12 job, run 45327222852)", "availability": "ACCESSIBLE_VIA_CI", "historical": true, "scope": "upstream", "result": "32 entries with DOS times monotonic in pipeline order. capture_manifest.json captured_at 08:08:14.741451Z; PNG record sha256 dd0ff1..., 209306 bytes, 1080x1920."},
+    {"id": "S09", "source": "All 41 retained artifacts in the repository (listing) and the 25 non-experimental ones (member scan), read-only T12 job run 45327222852", "availability": "ACCESSIBLE_VIA_CI", "historical": true, "scope": "upstream", "result": "Two artifacts contain screenshots/01_github.com_01.png with SHA-256 dd0ff1...: 14799922102 and 14797203454. The other 23 do not contain the member."},
+    {"id": "S10", "source": "Workflow run 45130379294 and artifact 14797203454 metadata", "availability": "ACCESSIBLE", "historical": true, "scope": "upstream", "result": "main@b16f992, created 07:22:35Z, 5,519,442 bytes, digest sha256:ed20670546e1de1f41e2042012570e34c08662472a867064ed4352aa8654ddb3."},
+    {"id": "S11", "source": "T1-T11 evidence artifacts (archive-boundary-*) and their workflow logs", "availability": "ACCESSIBLE", "historical": false, "result": "Experimental only: synthetic or original-artifact reproductions on GitHub runners. No historical runtime telemetry. Listed by T12, not re-scanned."},
+    {"id": "S12", "source": "provenance-test-* artifacts (runs 45306218173, 45306646346, 45306669375, 45306718847)", "availability": "ACCESSIBLE", "historical": false, "result": "Earlier artifact-provenance test of provenance_test/provenance.txt. Contains no PNG; listed, not scanned."},
+    {"id": "S13", "source": "This container: /mnt/data, /mnt/data/gh_demo, /proc/325", "availability": "NOT_PRESENT", "historical": false, "result": "Paths absent. This is a different runtime (mnt:[4026531832]), not the historical one."},
+    {"id": "S14", "source": "Conversation attachments: /mnt/attach, /mnt/user-data/uploads, /mnt/user-data/outputs, /mnt/user-data/working", "availability": "NOT_PRESENT", "historical": false, "result": "All empty (0 entries)."},
+    {"id": "S15", "source": "This session's conversation", "availability": "ACCESSIBLE", "historical": false, "result": "Contains only historical values the user transcribed into prompts (UID/GID/mode/device/inode/mount ID/parent/PID 325/namespace). No raw historical tool output (stat, statx, ls, mount, ps)."},
+    {"id": "S16", "source": "Historical ChatGPT runtime: /mnt/data (device 27, mount ID 52), PID 325, mnt:[4026532181], its process tables, mountinfo, stat/statx outputs, audit or connector logs", "availability": "INACCESSIBLE", "historical": true, "result": "No access path exists from this environment or from GitHub. The file no longer exists at the historical path (user-stated)."},
+    {"id": "S17", "source": "Azure blob storage download of artifacts into this sandbox (productionresultssa11/sa14.blob.core.windows.net)", "availability": "INACCESSIBLE", "historical": false, "result": "Agent proxy: connect_rejected, HTTP 403. Read-only CI jobs were used instead (S08, S09)."},
+    {"id": "S18", "source": "Personal connectors available to this session (Gmail, Google Drive)", "availability": "NOT_SEARCHED", "historical": "unknown", "result": "Not in the source list authorized for T12, and they hold personal data. They could contain exported ChatGPT transcripts; searching them needs the user's explicit direction."},
+    {"id": "S19", "source": "Artifacts deleted or expired before 2026-11-24T04:33Z, and copies outside GitHub", "availability": "INACCESSIBLE", "historical": true, "result": "Cannot be enumerated. The uniqueness check (S09) covers only artifacts still retained."}
+  ]
+}

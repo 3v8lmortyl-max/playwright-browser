@@ -1,0 +1,67 @@
+{
+  "investigation": "T12 historical runtime telemetry recovery",
+  "rule": "A candidate is eliminated only when historical evidence (including the user-provided historical attributes) contradicts it. Reproducing the metadata does not prove a candidate.",
+  "historical_constraints_used": [
+    "file UID 0, GID 1001, mode 0644, size 209306, SHA-256 dd0ff1… (user-provided)",
+    "parent /mnt/data/gh_demo 0:1001 2755 (user-provided)",
+    "observed Python process PID 325 running as UID/GID 1000 (user-provided)",
+    "ZIP entries carry no UID/GID fields and no extra fields (T11 CONFIRMED; R03)"
+  ],
+  "candidates": [
+    {
+      "id": "C1", "sequence": "Root extraction (unzip / zipfile) into a setgid GID-1001 directory",
+      "supporting": ["Reproduces UID 0 / GID 1001 / 0644 and the parent state experimentally (T9 A/root, T10 S1a/S1c/S3a/S3c/S4a/S4b, T11 01/02/03 A/root)"],
+      "contradicting": [],
+      "status": "CONSISTENT",
+      "would_discriminate": "Historical mtime equal to a DOS time (2026-11-23T08:07:56Z or 07:21:58Z, or the same instant shifted by the extractor's TZ offset), with zero nanoseconds and ctime later than mtime, points to an mtime-restoring extractor (Info-ZIP unzip). A nanosecond mtime equal to ctime points to zipfile or a stream write."
+    },
+    {
+      "id": "C2", "sequence": "Root copy (cp, install, shutil.copyfile/copy2, redirection) into a setgid GID-1001 directory",
+      "supporting": ["Reproduces the signature experimentally (T10 S5a/S5d/S5e/S5f; T11 04/06/07/08 A/root)"],
+      "contradicting": [],
+      "status": "CONSISTENT",
+      "would_discriminate": "copy2 and cp -p carry the source mtime to the nanosecond, while cp, copyfile and redirection stamp a new mtime equal to ctime. Recovering the source file's metadata would be needed."
+    },
+    {
+      "id": "C3", "sequence": "Unprivileged extraction or copy, followed by explicit root chown (and chown/chmod of directories)",
+      "supporting": ["Reproduces the signature experimentally (T10 S6a, S6b)",
+                     "A UID-1000 process (PID 325) existed in the historical namespace (user-provided); this shows an unprivileged actor was present but not that it acted on the file"],
+      "contradicting": [],
+      "status": "CONSISTENT",
+      "would_discriminate": "A ctime later than mtime by the gap between creation and chown, plus a root chown/fchownat in audit records."
+    },
+    {
+      "id": "C4", "sequence": "Temporary file then rename(2) into place (temp in a setgid GID-1001 directory, or explicit ownership change before or after rename)",
+      "supporting": ["Reproduces the signature experimentally (T10 S6e; T11 09, 10g, 11a A/root)"],
+      "contradicting": [],
+      "status": "CONSISTENT",
+      "would_discriminate": "A rename leaves the inode and mtime unchanged and updates ctime. A temp file in a non-setgid directory keeps its own group (T11 10/11b), which conflicts with GID 1001 unless the group was explicitly changed."
+    },
+    {
+      "id": "C5", "sequence": "Other: a privileged platform materialisation service (for example a connector or file-upload helper running as root) writing into the setgid directory",
+      "supporting": [],
+      "contradicting": [],
+      "status": "UNKNOWN",
+      "note": "Mechanically this is a case of C1, C2 or C4. No historical record of any such process was recoverable, so it is neither supported nor excluded."
+    }
+  ],
+  "source_artifact_dimension": {
+    "question": "Which archive supplied the historical bytes?",
+    "candidates": [
+      {"artifact": 14799922102, "run": 45136043351, "zip_sha256": "cafc11da650cb8d2be6564eadef1830e8f9b5cfd12541d24b85dd038676b2f65", "member_dos_time": "2026-11-23T08:07:56", "status": "CONSISTENT"},
+      {"artifact": 14797203454, "run": 45130379294, "zip_sha256": "ed20670546e1de1f41e2042012570e34c08662472a867064ed4352aa8654ddb3", "member_dos_time": "2026-11-23T07:21:58", "status": "CONSISTENT"},
+      {"artifact": "unretained / non-GitHub copy", "status": "UNKNOWN"}
+    ],
+    "note": "Both archives contain byte-identical members (R07). A historical download record or archive hash, or an mtime restored from one of the two DOS times, would decide between them."
+  },
+  "eliminated_variants": [
+    {"variant": "Creation by an unprivileged identity with no later ownership change", "contradiction": "historical file UID 0; unprivileged creation yields the creator's UID (T9-T11)", "status": "RULED OUT"},
+    {"variant": "Direct creation of the PNG by the observed PID 325 (UID 1000) under ordinary credentials", "contradiction": "historical UID 0; an unprivileged process can neither create a UID-0 file nor chown it to 0", "caveat": "PID 325's capabilities and user-namespace mapping are unknown; with CAP_CHOWN or an idmapped namespace this would not hold", "status": "RULED OUT under ordinary credential semantics"},
+    {"variant": "Root creation in a non-setgid parent with no group change", "contradiction": "file would have GID 0 (T10 S1b/S3b; T11 profile C root)", "status": "RULED OUT"},
+    {"variant": "cp -p (or any ownership-preserving copy) from a source not owned 0:1001", "contradiction": "preserves the source owner (T10 S5b/S5c; T11 05)", "status": "RULED OUT"},
+    {"variant": "Rename of a temp file created in a non-setgid directory, with no ownership change", "contradiction": "keeps GID 0 (T10 S6c/S6f; T11 10/11b)", "status": "RULED OUT"},
+    {"variant": "Ownership restored from the archive (unzip -X or similar)", "contradiction": "no UID/GID or extra fields in either matching archive's member entry (R03; T11)", "status": "RULED OUT"},
+    {"variant": "Extraction with umask 002 that also created gh_demo", "contradiction": "gh_demo would be 2775, not 2755 (T10 S1d/S1e)", "status": "RULED OUT (only for the case where extraction created gh_demo)"}
+  ],
+  "final_assessment": "INSUFFICIENT HISTORICAL EVIDENCE"
+}

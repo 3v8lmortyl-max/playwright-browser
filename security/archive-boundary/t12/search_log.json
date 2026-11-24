@@ -1,0 +1,21 @@
+{
+  "investigation": "T12 historical runtime telemetry recovery",
+  "entries": [
+    {"n": 1, "stage": "verify", "action": "git rev-parse --abbrev-ref HEAD; git status; git fetch; git ls-remote --heads", "location": "local clone", "outcome": "provenance-test @ 888f23a, in sync with origin; remote heads main@6732c05 and provenance-test@888f23a"},
+    {"n": 2, "stage": "timestamps / directory / process / filesystem", "action": "git grep -E '262311|4026532181|gh_demo|/mnt/data|01_github\\.com_01|mount_id|mountinfo|\\bstatx\\b|ls -ln|getfattr|findmnt|namei|df -T|PID 325|pid 325|/proc/325' over every commit of every ref, excluding T9-T11 investigation code", "location": "57 commits", "outcome": "0 matches"},
+    {"n": 3, "stage": "timestamps", "action": "git log --all, messages filtered for the same patterns plus mtime|ctime|stat", "location": "all refs", "outcome": "0 matches outside T-suite commits"},
+    {"n": 4, "stage": "inventory", "action": "git fsck --unreachable --no-reflogs; git cat-file on each blob", "location": "object store", "outcome": "4 unreachable blobs, all session artefacts (bytecode, .gitignore draft)"},
+    {"n": 5, "stage": "timestamps", "action": "gh api search/code q='<term> user:3v8lmortyl-max' for gh_demo, 262311, 4026532181, 01_github.com_01.png", "location": "GitHub code search (default branch index)", "outcome": "0 for each term"},
+    {"n": 6, "stage": "timestamps", "action": "gh api search/issues q='<term> repo:… is:issue|is:pull-request' for gh_demo, mtime, 01_github", "location": "GitHub issues and PRs", "outcome": "0 for each; the first attempt without is: was rejected (HTTP 422) and re-run with it"},
+    {"n": 7, "stage": "process / upstream", "action": "actions_get get_workflow_job 137562438892", "location": "GitHub Actions API", "outcome": "step timing recovered (see R01)"},
+    {"n": 8, "stage": "process / upstream", "action": "get_job_logs 137562438892 (last 260 lines)", "location": "GitHub Actions logs", "outcome": "CAPTURED lines all stamped 08:08:14.742Z (buffered); upload of 32 files, digest cafc11…"},
+    {"n": 9, "stage": "upstream", "action": "git show origin/main:screenshot.py and origin/main:.github/workflows/screenshot.yml", "location": "original source at main@6732c05", "outcome": "capture script writes captured_at = datetime.now(UTC) after all captures; prints buffered to stdout; upload-artifact@v4 packages capture_manifest.json, screenshots/, output/"},
+    {"n": 10, "stage": "inventory", "action": "ls /mnt/data, /mnt/data/gh_demo, /proc/325; readlink /proc/self/ns/mnt", "location": "this container", "outcome": "absent; current namespace mnt:[4026531832]"},
+    {"n": 11, "stage": "inventory", "action": "find /mnt/attach /mnt/user-data/*; grep for historical markers", "location": "this container", "outcome": "all empty"},
+    {"n": 12, "stage": "inventory", "action": "list_workflow_runs screenshot.yml", "location": "GitHub Actions API", "outcome": "runs before 45136043351 also produced agent-framework-pypi-documentary artifacts (e.g. 45130379294)"},
+    {"n": 13, "stage": "timestamps / uniqueness", "action": "read-only CI job (run 45327222852): GET /actions/artifacts (41 listed); for the 25 non-experimental artifacts, download in memory/tmp and read the central directory, the SHA-256 of screenshots/01_github.com_01.png and capture_manifest.json", "location": "GitHub Actions artifacts", "outcome": "member present in 2 artifacts, both SHA-256 dd0ff1…: 14799922102 (DOS 08:07:56) and 14797203454 (DOS 07:21:58); full central directory and manifest of the original recovered"},
+    {"n": 14, "stage": "uniqueness", "action": "list_workflow_run_artifacts 45130379294; get_workflow_run 45130379294", "location": "GitHub Actions API", "outcome": "artifact 14797203454, digest sha256:ed20670546e1de1f…ddb3, 5,519,442 bytes, main@b16f992"},
+    {"n": 15, "stage": "access", "action": "curl of blob-storage download URLs for artifacts 14799922102 and 14889292161", "location": "Azure blob storage", "outcome": "HTTP 403 from the agent proxy (connect_rejected); not retried with other methods"},
+    {"n": 16, "stage": "not performed", "action": "search of Gmail / Google Drive", "location": "personal connectors", "outcome": "deliberately not performed (outside the authorized sources; personal data)"}
+  ]
+}
