@@ -53,6 +53,13 @@ def build_case(base: Path, scenario: str) -> tuple[Path, Path, Path]:
         (screenshots / "probe.txt").symlink_to(relative_target)
         member = "screenshots/probe.txt"
         external = target
+    elif scenario == "setgid-target":
+        # Matches the relevant POSIX inheritance conditions from the
+        # historical ownership signature: a setgid GID-1001 parent.
+        os.chmod(canary, 0o2755)
+        (dest / "screenshots").symlink_to("../canary")
+        member = "screenshots/probe.txt"
+        external = canary / "probe.txt"
     else:
         raise ValueError(scenario)
 
@@ -100,6 +107,10 @@ def run_case(root: Path, evidence: Path, helper: Path, extractor: str, scenario:
         "target_uid": st.st_uid if st else None,
         "target_gid": st.st_gid if st else None,
         "target_mode": oct(st.st_mode & 0o777) if st else None,
+        "target_signature_matches_0_1001_0644": bool(
+            st and st.st_uid == 0 and st.st_gid == 1001
+            and (st.st_mode & 0o777) == 0o644
+        ),
         "dest_symlink_preserved": (
             (dest / "screenshots").is_symlink()
             or (dest / "screenshots" / "cache").is_symlink()
@@ -110,7 +121,8 @@ def run_case(root: Path, evidence: Path, helper: Path, extractor: str, scenario:
         f"RESULT extractor={extractor} scenario={scenario} "
         f"helper_exit={rc} OUTSIDE_WRITE={'YES' if redirected else 'NO'} "
         f"target_uid={result['target_uid']} target_gid={result['target_gid']} "
-        f"symlink_preserved={result['dest_symlink_preserved']}"
+        f"target_mode={result['target_mode']} "
+        f"historical_signature_match={result['target_signature_matches_0_1001_0644']}"
     )
     return result
 
@@ -138,13 +150,19 @@ def main() -> int:
 
     results = []
     for extractor in ("unzip", "zipfile"):
-        for scenario in ("direct-directory", "nested-directory", "symlink-chain", "final-file"):
+        for scenario in (
+            "direct-directory", "nested-directory", "symlink-chain",
+            "final-file", "setgid-target"
+        ):
             results.append(run_case(root, evidence, helper, extractor, scenario))
 
     summary = {
         "orchestrator_uid": os.geteuid(),
         "cases": results,
         "outside_write_count": sum(r["external_write_detected"] for r in results),
+        "historical_signature_match_count": sum(
+            r["target_signature_matches_0_1001_0644"] for r in results
+        ),
         "all_root_helpers_succeeded": all(r["helper_exit"] == 0 for r in results),
     }
     (evidence / "results.json").write_text(json.dumps(summary, indent=2) + "\n")
@@ -153,12 +171,14 @@ def main() -> int:
         f"ORCHESTRATOR_UID={summary['orchestrator_uid']}",
         f"ALL_ROOT_HELPERS_SUCCEEDED={summary['all_root_helpers_succeeded']}",
         f"OUTSIDE_WRITE_COUNT={summary['outside_write_count']}/{len(results)}",
+        f"HISTORICAL_0_1001_0644_SIGNATURE_MATCHES={summary['historical_signature_match_count']}",
     ]
     lines += [
         f"{r['extractor']} / {r['scenario']}: "
         f"outside_write={'YES' if r['external_write_detected'] else 'NO'}, "
-        f"helper_exit={r['helper_exit']}, target_uid={r['target_uid']}, "
-        f"target_gid={r['target_gid']}, target_mode={r['target_mode']}"
+        f"helper_exit={r['helper_exit']}, uid={r['target_uid']}, "
+        f"gid={r['target_gid']}, mode={r['target_mode']}, "
+        f"historical_match={r['target_signature_matches_0_1001_0644']}"
         for r in results
     ]
     (evidence / "SUMMARY.txt").write_text("\n".join(lines) + "\n")
