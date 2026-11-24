@@ -1,0 +1,45 @@
+name: Artifact provenance test
+
+on:
+  push:
+    branches: [provenance-test]
+    paths:
+      - "provenance_test/**"
+      - ".github/workflows/provenance-artifact.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upload-provenance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify provenance manifest
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path("provenance_test")
+          manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+          payload = (root / manifest["original_filename"]).read_bytes()
+          actual_hash = hashlib.sha256(payload).hexdigest()
+          if actual_hash != manifest["sha256"]:
+              raise SystemExit("SHA-256 mismatch")
+          if len(payload) != manifest["size_bytes"]:
+              raise SystemExit("File-size mismatch")
+          print(f"Verified {manifest['original_filename']}: {actual_hash}, {len(payload)} bytes")
+          PY
+
+      - name: Upload provenance test artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: provenance-test-${{ github.run_id }}
+          path: provenance_test/
+          if-no-files-found: error
+          retention-days: 7
