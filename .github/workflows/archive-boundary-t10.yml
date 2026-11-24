@@ -1,0 +1,70 @@
+name: Archive boundary T10 extraction provenance
+
+# Synthetic reconstruction of the operation sequences that can produce the
+# historical /mnt/data/gh_demo/screenshots/01_github.com_01.png ownership
+# signature. Separate workflow; T1-T9 and their workflows are untouched. All
+# experiments run in disposable /tmp labs with synthetic files only.
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - "security/archive-boundary/extraction_provenance.py"
+      - "security/archive-boundary/extraction_provenance_helper.py"
+      - "security/archive-boundary/extraction_provenance_wrapper.sh"
+      - "security/archive-boundary/T10_README.md"
+      - ".github/workflows/archive-boundary-t10.yml"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  extraction-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Show runner identity (must be unprivileged) and tools
+        run: |
+          echo "orchestration user: $(id)"
+          test "$(id -u)" -ne 0 || { echo "::error::runner is root"; exit 1; }
+          command -v strace >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends strace; }
+          echo "strace: $(strace -V | head -1)"
+          echo "unzip: $(unzip -v | head -1)"
+          echo "curl: $(curl --version | head -1)"
+          echo "python3: $(python3 --version)"
+          echo "kernel: $(uname -r)  yama ptrace_scope: $(cat /proc/sys/kernel/yama/ptrace_scope 2>/dev/null || echo n/a)"
+
+      - name: Make T10 scripts executable
+        working-directory: security/archive-boundary
+        run: chmod +x extraction_provenance.py extraction_provenance_helper.py extraction_provenance_wrapper.sh
+
+      - name: Run T10 extraction provenance reconstruction
+        working-directory: security/archive-boundary
+        run: |
+          python3 extraction_provenance.py \
+            --out "${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t10" \
+            --base /tmp
+
+      - name: Publish T10 report to job summary
+        if: always()
+        run: |
+          R="${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t10/provenance_report.md"
+          if [ -f "$R" ]; then head -c 900000 "$R" >> "$GITHUB_STEP_SUMMARY"; else echo "No T10 report produced." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload T10 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-boundary-t10-evidence-${{ github.run_id }}
+          path: security/archive-boundary/evidence-out-t10/
+          if-no-files-found: error
+          retention-days: 14
