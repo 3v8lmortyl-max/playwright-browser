@@ -1,0 +1,40 @@
+name: T15 Root-Verified Symlink Extraction Matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - .github/workflows/t15-root-symlink-matrix.yml
+      - security/archive-boundary/t15_preexisting_symlink_matrix.py
+      - security/archive-boundary/t15_root_extract_helper.py
+
+permissions:
+  contents: read
+
+jobs:
+  root-symlink-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run root-verified extraction matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "RUNNER_IDENTITY:"
+          id
+          echo "SUDO_CHECK:"
+          sudo -n id
+          python3 security/archive-boundary/t15_preexisting_symlink_matrix.py \
+            --root "$RUNNER_TEMP/t15-root-symlink-matrix" \
+            --root-helper security/archive-boundary/t15_root_extract_helper.py
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t15-root-symlink-matrix-evidence
+          path: ${{ runner.temp }}/t15-root-symlink-matrix/evidence/
+          if-no-files-found: warn
