@@ -1,0 +1,92 @@
+name: T13 Automatic Archive Unpack Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  automatic-unpack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Build isolated probe workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/t13-auto-unpack"
+          mkdir -p "$ROOT"
+          printf '%s\n' "$ROOT" > "$RUNNER_TEMP/t13-root-path"
+          python3 - <<'PY'
+          import base64, hashlib, pathlib
+          encoded = "UEsDBBQAAAAAAAAAIQBDX0ZNDQAAAA0AAAALAAAAc2NyZWVuc2hvdHMuLi90MTMtY2FuYXJ5UEsDBBQAAAAIAAMseF0bslNbbgAAAIkAAAAVAAAAc2NyZWVuc2hvdHMvcHJvYmUudHh0JYzLDcJADAXvVPEKAKQoN+qggcfGSyz2E9mGkO5ZidscZuY+zVhptYg7EhvtuEEzYlVHyDfAbROaQxsI10fR9kRM8+VvY1GTFH0Qc4iB7+iVoQmjNqbQ3s7gqC2t+hH4UcfjhZ2O3EvpuyzX0w9QSwECFAMUAAAAAAAAACEAQ19GTQ0AAAANAAAACwAAAAAAAAAAAAAA/6EAAAAAc2NyZWVuc2hvdHNQSwECFAMUAAAACAADLHhdG7JTW24AAACJAAAAFQAAAAAAAAAAAAAAgAE2AAAAc2NyZWVuc2hvdHMvcHJvYmUudHh0UEsFBgAAAAACAAIAfAAAANcAAAAAAA=="
+          data = base64.b64decode(encoded)
+          expected = "1073cd19652c733840c78812e77452bbe62575f36360c85b31f6ca76a4d70709"
+          actual = hashlib.sha256(data).hexdigest()
+          assert actual == expected, (actual, expected)
+          root = pathlib.Path("$RUNNER_TEMP") / "t13-auto-unpack"
+          (root / "probe.zip").write_bytes(data)
+          print(f"PROBE_SHA256={actual}")
+          print(f"PROBE_SIZE={len(data)}")
+          PY
+
+      - name: Automatically extract with Info-ZIP
+        shell: bash
+        run: |
+          set +e
+          ROOT="$RUNNER_TEMP/t13-auto-unpack"
+          mkdir -p "$ROOT/unzip/t13-canary" "$ROOT/unzip/extract"
+          unzip -o "$ROOT/probe.zip" -d "$ROOT/unzip/extract" > "$ROOT/unzip.log" 2>&1
+          RC=$?
+          echo "UNZIP_EXIT=$RC" | tee "$ROOT/unzip-result.txt"
+          cat "$ROOT/unzip.log"
+          if [ -e "$ROOT/unzip/t13-canary/probe.txt" ]; then
+            echo "UNZIP_CANARY=WRITTEN" | tee -a "$ROOT/unzip-result.txt"
+            cat "$ROOT/unzip/t13-canary/probe.txt"
+          else
+            echo "UNZIP_CANARY=NOT_WRITTEN" | tee -a "$ROOT/unzip-result.txt"
+          fi
+          if [ -L "$ROOT/unzip/extract/screenshots" ]; then
+            echo "UNZIP_SYMLINK=CREATED" | tee -a "$ROOT/unzip-result.txt"
+            readlink "$ROOT/unzip/extract/screenshots" | tee -a "$ROOT/unzip-result.txt"
+          else
+            echo "UNZIP_SYMLINK=NOT_CREATED" | tee -a "$ROOT/unzip-result.txt"
+          fi
+          exit 0
+
+      - name: Automatically extract with Python zipfile
+        shell: bash
+        run: |
+          set +e
+          ROOT="$RUNNER_TEMP/t13-auto-unpack"
+          mkdir -p "$ROOT/python/t13-canary" "$ROOT/python/extract"
+          python3 - "$ROOT/probe.zip" "$ROOT/python/extract" > "$ROOT/python.log" 2>&1 <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              archive.extractall(sys.argv[2])
+          print("PYTHON_EXTRACT=COMPLETED")
+          PY
+          RC=$?
+          echo "PYTHON_EXIT=$RC" | tee "$ROOT/python-result.txt"
+          cat "$ROOT/python.log"
+          if [ -e "$ROOT/python/t13-canary/probe.txt" ]; then
+            echo "PYTHON_CANARY=WRITTEN" | tee -a "$ROOT/python-result.txt"
+            cat "$ROOT/python/t13-canary/probe.txt"
+          else
+            echo "PYTHON_CANARY=NOT_WRITTEN" | tee -a "$ROOT/python-result.txt"
+          fi
+          if [ -L "$ROOT/python/extract/screenshots" ]; then
+            echo "PYTHON_SYMLINK=CREATED" | tee -a "$ROOT/python-result.txt"
+            readlink "$ROOT/python/extract/screenshots" | tee -a "$ROOT/python-result.txt"
+          else
+            echo "PYTHON_SYMLINK=NOT_CREATED" | tee -a "$ROOT/python-result.txt"
+          fi
+          exit 0
+
+      - name: Upload probe evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: t13-automatic-unpack-evidence
+          path: ${{ runner.temp }}/t13-auto-unpack/
+          if-no-files-found: error
