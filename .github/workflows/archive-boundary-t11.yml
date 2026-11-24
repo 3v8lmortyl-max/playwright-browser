@@ -96,3 +96,4 @@ jobs:
 
       - name: Verify downloaded evidence
         run: python3 security/archive-boundary/t11_verify_evidence.py downloaded-evidence
+# Regression retest trigger: 2026-11-24; no test logic or permissions changed.
