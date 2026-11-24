@@ -26,42 +26,45 @@ def sha256(data: bytes) -> str:
 def build_case(base: Path, scenario: str) -> tuple[Path, Path, Path]:
     dest = base / "extract"
     canary = base / "canary"
-    dest.mkdir(parents=True)
     canary.mkdir()
     (canary / "marker.txt").write_bytes(MARKER)
 
-    if scenario == "direct-directory":
-        (dest / "screenshots").symlink_to("../canary")
-        member = "screenshots/probe.txt"
-        external = canary / "probe.txt"
-    elif scenario == "nested-directory":
-        screenshots = dest / "screenshots"
-        screenshots.mkdir()
-        (screenshots / "cache").symlink_to("../../canary")
-        member = "screenshots/cache/probe.txt"
-        external = canary / "probe.txt"
-    elif scenario == "symlink-chain":
-        (base / "bridge").symlink_to("canary")
-        (dest / "screenshots").symlink_to("../bridge")
-        member = "screenshots/probe.txt"
-        external = canary / "probe.txt"
-    elif scenario == "final-file":
-        screenshots = dest / "screenshots"
-        screenshots.mkdir()
-        target = canary / "marker.txt"
-        relative_target = os.path.relpath(target, screenshots)
-        (screenshots / "probe.txt").symlink_to(relative_target)
-        member = "screenshots/probe.txt"
-        external = target
-    elif scenario == "setgid-target":
-        # Matches the relevant POSIX inheritance conditions from the
-        # historical ownership signature: a setgid GID-1001 parent.
-        os.chmod(canary, 0o2755)
-        (dest / "screenshots").symlink_to("../canary")
-        member = "screenshots/probe.txt"
+    if scenario == "root-symlink":
+        dest.symlink_to("canary", target_is_directory=True)
+        member = "probe.txt"
         external = canary / "probe.txt"
     else:
-        raise ValueError(scenario)
+        dest.mkdir()
+        if scenario == "direct-directory":
+            (dest / "screenshots").symlink_to("../canary")
+            member = "screenshots/probe.txt"
+            external = canary / "probe.txt"
+        elif scenario == "nested-directory":
+            screenshots = dest / "screenshots"
+            screenshots.mkdir()
+            (screenshots / "cache").symlink_to("../../canary")
+            member = "screenshots/cache/probe.txt"
+            external = canary / "probe.txt"
+        elif scenario == "symlink-chain":
+            (base / "bridge").symlink_to("canary")
+            (dest / "screenshots").symlink_to("../bridge")
+            member = "screenshots/probe.txt"
+            external = canary / "probe.txt"
+        elif scenario == "final-file":
+            screenshots = dest / "screenshots"
+            screenshots.mkdir()
+            target = canary / "marker.txt"
+            relative_target = os.path.relpath(target, screenshots)
+            (screenshots / "probe.txt").symlink_to(relative_target)
+            member = "screenshots/probe.txt"
+            external = target
+        elif scenario == "setgid-target":
+            os.chmod(canary, 0o2755)
+            (dest / "screenshots").symlink_to("../canary")
+            member = "screenshots/probe.txt"
+            external = canary / "probe.txt"
+        else:
+            raise ValueError(scenario)
 
     archive = base / "probe.zip"
     info = zipfile.ZipInfo(member)
@@ -111,8 +114,10 @@ def run_case(root: Path, evidence: Path, helper: Path, extractor: str, scenario:
             st and st.st_uid == 0 and st.st_gid == 1001
             and (st.st_mode & 0o777) == 0o644
         ),
+        "destination_root_is_symlink": dest.is_symlink(),
         "dest_symlink_preserved": (
-            (dest / "screenshots").is_symlink()
+            dest.is_symlink()
+            or (dest / "screenshots").is_symlink()
             or (dest / "screenshots" / "cache").is_symlink()
         ),
         "root_log": str(helper_log),
@@ -122,6 +127,7 @@ def run_case(root: Path, evidence: Path, helper: Path, extractor: str, scenario:
         f"helper_exit={rc} OUTSIDE_WRITE={'YES' if redirected else 'NO'} "
         f"target_uid={result['target_uid']} target_gid={result['target_gid']} "
         f"target_mode={result['target_mode']} "
+        f"root_symlink={result['destination_root_is_symlink']} "
         f"historical_signature_match={result['target_signature_matches_0_1001_0644']}"
     )
     return result
@@ -139,6 +145,7 @@ def main() -> int:
     evidence = root / "evidence"
     evidence.mkdir()
     print(f"ORCHESTRATOR_UID={os.geteuid()} GID={os.getegid()}")
+    print(f"PYTHON_VERSION={sys.version}")
     print(f"ROOT={root}")
     print(f"ROOT_HELPER={helper}")
 
@@ -151,13 +158,17 @@ def main() -> int:
     results = []
     for extractor in ("unzip", "zipfile"):
         for scenario in (
-            "direct-directory", "nested-directory", "symlink-chain",
-            "final-file", "setgid-target"
+            "root-symlink", "direct-directory", "nested-directory",
+            "symlink-chain", "final-file", "setgid-target"
         ):
             results.append(run_case(root, evidence, helper, extractor, scenario))
 
     summary = {
         "orchestrator_uid": os.geteuid(),
+        "python_version": sys.version,
+        "unzip_version": subprocess.run(
+            ["unzip", "-v"], capture_output=True, text=True
+        ).stdout.splitlines()[0] if shutil_which("unzip") else "unavailable",
         "cases": results,
         "outside_write_count": sum(r["external_write_detected"] for r in results),
         "historical_signature_match_count": sum(
@@ -169,6 +180,8 @@ def main() -> int:
     lines = [
         "T15 ROOT-VERIFIED PRE-EXISTING SYMLINK MATRIX",
         f"ORCHESTRATOR_UID={summary['orchestrator_uid']}",
+        f"PYTHON_VERSION={sys.version.split()[0]}",
+        f"UNZIP_VERSION={summary['unzip_version']}",
         f"ALL_ROOT_HELPERS_SUCCEEDED={summary['all_root_helpers_succeeded']}",
         f"OUTSIDE_WRITE_COUNT={summary['outside_write_count']}/{len(results)}",
         f"HISTORICAL_0_1001_0644_SIGNATURE_MATCHES={summary['historical_signature_match_count']}",
@@ -178,12 +191,18 @@ def main() -> int:
         f"outside_write={'YES' if r['external_write_detected'] else 'NO'}, "
         f"helper_exit={r['helper_exit']}, uid={r['target_uid']}, "
         f"gid={r['target_gid']}, mode={r['target_mode']}, "
+        f"root_symlink={r['destination_root_is_symlink']}, "
         f"historical_match={r['target_signature_matches_0_1001_0644']}"
         for r in results
     ]
     (evidence / "SUMMARY.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     return 0 if summary["all_root_helpers_succeeded"] else 3
+
+
+def shutil_which(command: str) -> str | None:
+    import shutil
+    return shutil.which(command)
 
 
 if __name__ == "__main__":
