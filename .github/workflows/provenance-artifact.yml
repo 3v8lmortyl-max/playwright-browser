@@ -75,7 +75,7 @@ jobs:
               })
 
           (root / "runner_metadata.json").write_text(
-              json.dumps(observations, indent=2) + "\\n",
+              json.dumps(observations, indent=2) + "\n",
               encoding="utf-8",
           )
           print(json.dumps(observations, indent=2))
