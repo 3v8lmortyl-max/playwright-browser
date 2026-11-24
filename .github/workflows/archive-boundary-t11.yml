@@ -1,0 +1,75 @@
+name: Archive boundary T11 timestamp and content provenance
+
+# Uses the ORIGINAL artifact 14799922102 (run 45136043351) and its original PNG
+# member to measure how extraction/copy/rename operations treat timestamps and
+# ownership. Separate workflow; T1-T10 and existing workflows are untouched.
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - "security/archive-boundary/t11_timestamp_provenance.py"
+      - "security/archive-boundary/t11_privileged_helper.py"
+      - "security/archive-boundary/t11_privileged_wrapper.sh"
+      - "security/archive-boundary/T11_README.md"
+      - ".github/workflows/archive-boundary-t11.yml"
+
+# actions: read is required to download the workflow artifact; nothing else.
+permissions:
+  contents: read
+  actions: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  timestamp-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Show runner identity (must be unprivileged) and tools
+        run: |
+          echo "orchestration user: $(id)"
+          test "$(id -u)" -ne 0 || { echo "::error::runner is root"; exit 1; }
+          command -v strace >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends strace; }
+          echo "strace: $(strace -V | head -1)"
+          echo "unzip: $(unzip -v | head -1)"
+          echo "coreutils: $(cp --version | head -1)"
+          echo "python3: $(python3 --version)"
+          echo "kernel: $(uname -r)  TZ=${TZ:-unset}  date: $(date -u +%FT%TZ)"
+          findmnt -T /tmp || true
+
+      - name: Make T11 scripts executable
+        working-directory: security/archive-boundary
+        run: chmod +x t11_timestamp_provenance.py t11_privileged_helper.py t11_privileged_wrapper.sh
+
+      - name: Run T11 with the original artifact
+        working-directory: security/archive-boundary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 t11_timestamp_provenance.py \
+            --out "${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t11" \
+            --base /tmp \
+            --download
+
+      - name: Publish T11 report to job summary
+        if: always()
+        run: |
+          R="${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t11/provenance_report.md"
+          if [ -f "$R" ]; then head -c 900000 "$R" >> "$GITHUB_STEP_SUMMARY"; else echo "No T11 report produced." >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload T11 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-boundary-t11-evidence-${{ github.run_id }}
+          path: security/archive-boundary/evidence-out-t11/
+          if-no-files-found: error
+          retention-days: 14
