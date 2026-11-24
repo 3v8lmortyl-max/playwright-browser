@@ -1,0 +1,40 @@
+name: Archive boundary T12 existing historical evidence (read-only)
+
+# T12 collects EXISTING historical evidence only (no experiments). It reads the
+# retained GitHub Actions artifacts' central directories, the original
+# capture_manifest.json, and the SHA-256 of screenshots/01_github.com_01.png in
+# every retained non-experimental artifact. Read-only; it does not alter
+# T1-T11 or any other workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - "security/archive-boundary/t12/t12_collect_existing_evidence.py"
+      - ".github/workflows/archive-boundary-t12.yml"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Collect existing artifact evidence (read-only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 security/archive-boundary/t12/t12_collect_existing_evidence.py t12-evidence
+      - name: Upload T12 collected evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-boundary-t12-existing-evidence-${{ github.run_id }}
+          path: t12-evidence/
+          if-no-files-found: warn
+          retention-days: 14
