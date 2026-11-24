@@ -353,9 +353,11 @@ def dos_epoch_ns(dt_tuple, tz):
 
 def evaluate(sdir, records, ctx):
     t = sdir / "dest" / "screenshots" / NAME
-    tm = describe(t) if os.path.lexists(t) else None
-    dm = describe(sdir / "dest") if (sdir / "dest").exists() else None
-    ssm = describe(sdir / "dest" / "screenshots") if (sdir / "dest" / "screenshots").exists() else None
+    paths = [p for p in (t, sdir / "dest", sdir / "dest" / "screenshots") if os.path.lexists(p)]
+    births = birth_times([str(p) for p in paths])
+    tm = describe(t, births) if os.path.lexists(t) else None
+    dm = describe(sdir / "dest", births) if (sdir / "dest").exists() else None
+    ssm = describe(sdir / "dest" / "screenshots", births) if (sdir / "dest" / "screenshots").exists() else None
     op_steps = [r for r in records if r["role"] == "op"]
     failed = [r for r in op_steps if r["returncode"] != 0]
     content_ok = bool(tm) and tm["type"] == "regular" and tm.get("sha256") == ctx["png_sha"] \

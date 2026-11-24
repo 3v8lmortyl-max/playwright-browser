@@ -562,7 +562,15 @@ def build_report(results, manifest, verification, acquisition, fsinfo, search, s
         f"Historical timestamps: {search['conclusion']}. Every timestamp dimension is therefore INCONCLUSIVE.",
     ]
 
-    eliminated = [f"{o['operation']} ({o['title']}): {'; '.join(o['ruled_out_reasons'])}"
+    def _uniq(reasons):
+        seen = []
+        for r in reasons:
+            for frag in r.split("; "):
+                if frag not in seen:
+                    seen.append(frag)
+        return "; ".join(seen)
+
+    eliminated = [f"{o['operation']} ({o['title']}): no configuration reproduced — {_uniq(o['ruled_out_reasons'])}"
                   for o in ops if o["verdict"] == "RULED_OUT"]
     repro = [s for s in scen if s["evaluation"]["classification"] == "REPRODUCED"]
     if not any(s["identity"] == "unpriv" for s in repro):
