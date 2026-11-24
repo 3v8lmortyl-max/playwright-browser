@@ -1,0 +1,102 @@
+name: T14 Pre-existing Destination Symlink Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - .github/workflows/t14-preexisting-symlink.yml
+
+permissions:
+  contents: read
+
+jobs:
+  preexisting-symlink:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run isolated root extraction probe
+        shell: bash
+        run: |
+          set -u
+          ROOT="$RUNNER_TEMP/t14-preexisting-symlink"
+          mkdir -p "$ROOT/evidence"
+          export ROOT
+
+          python3 - <<'PY'
+          import os, zipfile
+          root = os.environ["ROOT"]
+          archive = os.path.join(root, "probe.zip")
+          with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as z:
+              z.writestr("screenshots/probe.txt", "T14 benign symlink redirection canary\n")
+          print("ZIP_CREATED", archive, os.path.getsize(archive))
+          PY
+
+          run_case() {
+            extractor="$1"
+            base="$ROOT/$extractor"
+            dest="$base/extract"
+            canary="$base/canary"
+            mkdir -p "$dest" "$canary"
+            printf 'CANARY_UNMODIFIED\n' > "$canary/marker.txt"
+            ln -s ../canary "$dest/screenshots"
+
+            {
+              echo "===== $extractor BEFORE ====="
+              id
+              stat -c 'dest=%n type=%F uid=%u gid=%g mode=%a' "$dest"
+              stat -c 'link=%n type=%F uid=%u gid=%g mode=%a target=%N' "$dest/screenshots"
+              cat "$canary/marker.txt"
+            } | tee "$ROOT/evidence/$extractor-before.txt"
+
+            set +e
+            if [ "$extractor" = "unzip" ]; then
+              sudo unzip -o "$ROOT/probe.zip" -d "$dest" 2>&1 | tee "$ROOT/evidence/$extractor-extract.log"
+              rc=${PIPESTATUS[0]}
+            else
+              sudo python3 - "$ROOT/probe.zip" "$dest" 2>&1 <<'PY' | tee "$ROOT/evidence/$extractor-extract.log"
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z:
+              z.extractall(sys.argv[2])
+          PY
+              rc=${PIPESTATUS[0]}
+            fi
+            set -e
+
+            {
+              echo "===== $extractor AFTER (extract_exit=$rc) ====="
+              if [ -e "$canary/screenshots/probe.txt" ]; then
+                echo "REDIRECTED_WRITE=YES"
+                stat -c 'target=%n uid=%u gid=%g mode=%a size=%s' "$canary/screenshots/probe.txt"
+                sha256sum "$canary/screenshots/probe.txt"
+                cat "$canary/screenshots/probe.txt"
+              else
+                echo "REDIRECTED_WRITE=NO"
+              fi
+              if [ -L "$dest/screenshots" ]; then
+                echo "DEST_SYMLINK_PRESERVED=YES target=$(readlink "$dest/screenshots")"
+              else
+                echo "DEST_SYMLINK_PRESERVED=NO"
+                ls -la "$dest"
+              fi
+              echo "CANARY_MARKER:"
+              cat "$canary/marker.txt"
+              echo "EXTRACTOR_EXIT=$rc"
+            } | tee "$ROOT/evidence/$extractor-after.txt"
+          }
+
+          run_case unzip
+          run_case zipfile
+
+          {
+            echo "T14 summary"
+            echo "This probe seeds a symlink inside each extraction destination before root extraction."
+            grep -H 'REDIRECTED_WRITE\|EXTRACTOR_EXIT\|DEST_SYMLINK_PRESERVED' "$ROOT"/evidence/*-after.txt || true
+          } | tee "$ROOT/evidence/SUMMARY.txt"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t14-preexisting-symlink-evidence
+          path: ${{ runner.temp }}/t14-preexisting-symlink/evidence/
+          if-no-files-found: warn
