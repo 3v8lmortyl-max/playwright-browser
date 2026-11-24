@@ -94,3 +94,4 @@ jobs:
           name: t13-automatic-unpack-evidence
           path: ${{ runner.temp }}/t13-auto-unpack/
           if-no-files-found: error
+# Regression retest trigger: 2026-11-24; test logic unchanged.
