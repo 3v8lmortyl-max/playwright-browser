@@ -95,3 +95,4 @@ jobs:
           path: security/archive-boundary/evidence-out-t9/
           if-no-files-found: error
           retention-days: 14
+# Regression retest trigger: 2026-11-24; no test logic or permissions changed.
