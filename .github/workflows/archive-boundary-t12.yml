@@ -38,3 +38,4 @@ jobs:
           path: t12-evidence/
           if-no-files-found: warn
           retention-days: 14
+# Regression retest trigger: 2026-11-24; no test logic or permissions changed.
