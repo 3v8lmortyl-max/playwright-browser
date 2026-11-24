@@ -1,0 +1,97 @@
+name: Archive boundary T9 ownership provenance
+
+# Manually triggered ownership-provenance experiment (T9). It builds a ZIP with a
+# single benign entry (a stand-in for screenshots/01_github.com_01.png) as the
+# unprivileged runner user, then extracts it — through a narrowly scoped sudo
+# helper — into controlled destination directories, as root and as an
+# unprivileged uid, to determine whether the historical ownership signature
+# UID 0 : GID 1001 : 0644 is reproducible and under which conditions.
+#
+# This is a separate workflow from archive-boundary.yml so the existing T1-T8
+# suite is left completely unchanged. All experiments stay inside disposable
+# temp directories; the original artifact is never touched.
+on:
+  workflow_dispatch:
+    inputs:
+      dests:
+        description: "Destination profiles (default: A B C)"
+        required: false
+        type: string
+        default: "A B C"
+      identities:
+        description: "Extracting identities (default: root unpriv)"
+        required: false
+        type: string
+        default: "root unpriv"
+  push:
+    branches: [provenance-test]
+    paths:
+      - "security/archive-boundary/ownership_provenance.py"
+      - "security/archive-boundary/provenance_extract_helper.py"
+      - "security/archive-boundary/provenance_extract_wrapper.sh"
+      - ".github/workflows/archive-boundary-t9.yml"
+
+# Minimal privileges; no secrets are used anywhere in this workflow.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ownership-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Show runner identity (must be unprivileged)
+        working-directory: security/archive-boundary
+        run: |
+          echo "orchestration user: $(id)"
+          test "$(id -u)" -ne 0 || { echo "::error::runner is root; orchestration must be unprivileged"; exit 1; }
+          echo "unzip: $(unzip -v | head -1)"
+          echo "python3: $(python3 --version)"
+
+      - name: Make T9 scripts executable
+        working-directory: security/archive-boundary
+        run: chmod +x ownership_provenance.py provenance_extract_helper.py provenance_extract_wrapper.sh
+
+      - name: Run T9 ownership provenance experiment
+        working-directory: security/archive-boundary
+        env:
+          DESTS: ${{ inputs.dests || 'A B C' }}
+          IDENTITIES: ${{ inputs.identities || 'root unpriv' }}
+        run: |
+          # Use /tmp (world-traversable, sticky, disposable) as the base so a
+          # dropped unprivileged uid can traverse into the lab and each
+          # destination's own permissions gate the write.
+          # shellcheck disable=SC2086  # intentional word-splitting into argv
+          python3 ownership_provenance.py \
+            --out "${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t9" \
+            --base /tmp \
+            --dests ${DESTS} \
+            --identities ${IDENTITIES}
+
+      - name: Publish T9 summary to job
+        if: always()
+        run: |
+          SUMMARY="${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out-t9/summary.md"
+          if [ -f "$SUMMARY" ]; then
+            cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No T9 summary produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload T9 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-boundary-t9-evidence-${{ github.run_id }}
+          path: security/archive-boundary/evidence-out-t9/
+          if-no-files-found: error
+          retention-days: 14

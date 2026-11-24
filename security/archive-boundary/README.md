@@ -111,3 +111,40 @@ orchestrator as root; not recommended, generation should be unprivileged).
 `ubuntu-latest` runner, triggered manually via **workflow_dispatch**, with
 `permissions: contents: read` and no secrets. Evidence is uploaded as an
 artifact even if a test fails.
+
+## T9 — ownership provenance (separate module and workflow)
+
+T9 is a distinct experiment, kept separate from the T1–T8 boundary tests so the
+existing suite is untouched. It asks: a historical copy of
+`screenshots/01_github.com_01.png` carried the on-disk ownership signature
+**UID 0 : GID 1001 : mode 0644**. ZIP archives do **not** transport POSIX
+uid/gid, so that signature cannot have come from the archive — can it be
+reproduced by the extraction *environment*, and under which conditions?
+
+Files: `ownership_provenance.py` (unprivileged orchestrator),
+`provenance_extract_helper.py` (the only sudo'd command; sets up the destination
+with an exact owner/group/mode and extracts as root or after dropping to an
+unprivileged uid), `provenance_extract_wrapper.sh` (narrow sudo wrapper).
+
+It extracts the entry into three destination profiles — A `0:1001` mode 2755
+(setgid), B `1000:1001` mode 2755 (setgid), C `1000:1000` mode 0755 (no setgid)
+— as root and as uid 1000, with both `unzip` and `zipfile.extractall`, recording
+archive metadata, extractor identity, and the resulting file's ownership, mode,
+inode, timestamps and SHA-256. Everything stays in disposable temp dirs; the
+original artifact is never touched (it is a generated artifact, absent from the
+repo, so a synthetic stand-in payload is used and the historical SHA-256 is
+recorded only as the reference identity — ownership is independent of content).
+
+Result: the signature is reproduced **only** when extraction runs **as root**
+into a **setgid** directory whose group is **1001** (profiles A and B); the
+directory's owner is irrelevant. Without setgid+group 1001 (profile C), root
+extraction yields GID 0. Unprivileged extraction yields UID 1000, never 0. So
+the necessary conditions are: (1) root (→ UID 0), (2) setgid destination of group
+1001 (→ GID 1001 via inheritance), (3) mode 0644 (umask 022 / archive). This
+characterizes POSIX mechanics only; it does not reconstruct any product's
+internal extraction path.
+
+Run locally: `python3 ownership_provenance.py --out ./evidence-out-t9 --base /tmp`.
+CI: `.github/workflows/archive-boundary-t9.yml` (workflow_dispatch + push on
+`provenance-test`), `permissions: contents: read`, no secrets, evidence uploaded
+always.

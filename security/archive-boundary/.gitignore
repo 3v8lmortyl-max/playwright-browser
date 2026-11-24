@@ -5,3 +5,5 @@ evidence-local/
 *.strace.log
 __pycache__/
 *.pyc
+evidence-out-t9/
+t9-local*/
