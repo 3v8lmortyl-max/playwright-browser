@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """T15: isolated ZIP extraction tests against pre-existing symlinks.
 
-All writes are confined to a fresh directory under --root. The "outside"
-canary is outside the extraction root but remains inside this test sandbox.
+All writes stay under a fresh sandbox directory. The canary is outside the
+extract root but inside the sandbox, so an escape is observable and harmless.
 """
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import zipfile
@@ -58,8 +57,12 @@ def build_case(base: Path, scenario: str) -> tuple[Path, Path, Path]:
         raise ValueError(scenario)
 
     archive = base / "probe.zip"
-    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(member, PAYLOAD)
+    info = zipfile.ZipInfo(member)
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.external_attr = (0o100644 << 16)
+    with zipfile.ZipFile(archive, "w") as zf:
+        zf.writestr(info, PAYLOAD)
     return archive, dest, external
 
 
@@ -75,16 +78,17 @@ def root_extract(helper: Path, extractor: str, archive: Path, dest: Path, log: P
     return proc.returncode
 
 
-def run_case(root: Path, helper: Path, extractor: str, scenario: str) -> dict:
+def run_case(root: Path, evidence: Path, helper: Path, extractor: str, scenario: str) -> dict:
     base = root / extractor / scenario
     base.mkdir(parents=True)
     archive, dest, external = build_case(base, scenario)
     before = external.read_bytes() if external.exists() else None
-    helper_log = base / "root-extractor.log"
+    helper_log = evidence / f"{extractor}-{scenario}-root.log"
     rc = root_extract(helper, extractor, archive, dest, helper_log)
     after = external.read_bytes() if external.exists() else None
     redirected = after == PAYLOAD and (scenario != "final-file" or before != after)
 
+    st = external.stat() if external.exists() else None
     result = {
         "extractor": extractor,
         "scenario": scenario,
@@ -93,9 +97,9 @@ def run_case(root: Path, helper: Path, extractor: str, scenario: str) -> dict:
         "external_target_exists": external.exists(),
         "external_target_sha256": sha256(after) if after is not None else None,
         "external_write_detected": redirected,
-        "target_uid": external.stat().st_uid if external.exists() else None,
-        "target_gid": external.stat().st_gid if external.exists() else None,
-        "target_mode": oct(external.stat().st_mode & 0o777) if external.exists() else None,
+        "target_uid": st.st_uid if st else None,
+        "target_gid": st.st_gid if st else None,
+        "target_mode": oct(st.st_mode & 0o777) if st else None,
         "dest_symlink_preserved": (
             (dest / "screenshots").is_symlink()
             or (dest / "screenshots" / "cache").is_symlink()
@@ -135,7 +139,7 @@ def main() -> int:
     results = []
     for extractor in ("unzip", "zipfile"):
         for scenario in ("direct-directory", "nested-directory", "symlink-chain", "final-file"):
-            results.append(run_case(root, helper, extractor, scenario))
+            results.append(run_case(root, evidence, helper, extractor, scenario))
 
     summary = {
         "orchestrator_uid": os.geteuid(),
@@ -153,7 +157,8 @@ def main() -> int:
     lines += [
         f"{r['extractor']} / {r['scenario']}: "
         f"outside_write={'YES' if r['external_write_detected'] else 'NO'}, "
-        f"helper_exit={r['helper_exit']}, target_uid={r['target_uid']}"
+        f"helper_exit={r['helper_exit']}, target_uid={r['target_uid']}, "
+        f"target_gid={r['target_gid']}, target_mode={r['target_mode']}"
         for r in results
     ]
     (evidence / "SUMMARY.txt").write_text("\n".join(lines) + "\n")
