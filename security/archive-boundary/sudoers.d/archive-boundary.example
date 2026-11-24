@@ -1,0 +1,17 @@
+# Example: narrowly scope sudo to ONLY the archive-boundary extraction wrapper.
+#
+# On a hardened or self-hosted runner, drop a rule like this into
+# /etc/sudoers.d/ (via `visudo -cf` validation) so the unprivileged
+# orchestrator user can run the single extraction wrapper as root and nothing
+# else. Replace <RUNNER_USER> and the path with the real values.
+#
+#   <RUNNER_USER> ALL=(root) NOPASSWD: /path/to/security/archive-boundary/privileged_extract_wrapper.sh
+#
+# The wrapper is the only command invoked with sudo; it runs strace around
+# privileged_extract.py, which enforces the extractor allowlist and confines the
+# destination to a lab under the temp base. No other privileged action is
+# permitted by this rule.
+#
+# NOTE: GitHub-hosted ubuntu-latest runners already grant the runner user
+# passwordless sudo for all commands; this file documents how the design is
+# meant to be locked down and is not required for the suite to run.

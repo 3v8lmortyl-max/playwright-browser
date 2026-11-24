@@ -1,0 +1,7 @@
+# Evidence is produced at run time (locally and in CI) and uploaded as a
+# workflow artifact; it is never committed.
+evidence-out/
+evidence-local/
+*.strace.log
+__pycache__/
+*.pyc

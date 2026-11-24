@@ -1,0 +1,87 @@
+name: Archive extraction boundary test
+
+# Manually triggered defensive test suite. It generates hostile ZIP archives as
+# the unprivileged runner user and extracts them through a narrowly scoped sudo
+# command, measuring whether extractors confine writes to the extraction root.
+# All attempted escapes stay inside a disposable lab under $RUNNER_TEMP.
+on:
+  workflow_dispatch:
+    inputs:
+      extractors:
+        description: "Space-separated extractors (default: all)"
+        required: false
+        type: string
+        default: "unzip python-zipfile-extractall python-zipfile-naive-control"
+      tests:
+        description: "Space-separated test IDs (default: all T1..T8)"
+        required: false
+        type: string
+        default: "T1 T2 T3 T4 T5 T6 T7 T8"
+
+# Minimal privileges; no secrets are used anywhere in this workflow.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  archive-boundary:
+    # Fresh ephemeral GitHub-hosted runner.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Show runner identity (must be unprivileged)
+        working-directory: security/archive-boundary
+        run: |
+          echo "orchestration user: $(id)"
+          test "$(id -u)" -ne 0 || { echo "::error::runner is root; orchestration must be unprivileged"; exit 1; }
+
+      - name: Install strace (for syscall evidence)
+        run: |
+          # Setup only. unzip is preinstalled on ubuntu-latest; strace usually is not.
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends strace unzip
+          echo "unzip: $(unzip -v | head -1)"
+          echo "strace: $(command -v strace)"
+          echo "python3: $(python3 --version)"
+
+      - name: Make harness scripts executable
+        working-directory: security/archive-boundary
+        run: chmod +x run_boundary_suite.py hostile_zip.py privileged_extract.py privileged_extract_wrapper.sh
+
+      - name: Run archive-extraction boundary suite
+        working-directory: security/archive-boundary
+        env:
+          ARCHIVE_BOUNDARY_BASE: ${{ runner.temp }}
+        run: |
+          python3 run_boundary_suite.py \
+            --out "${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out" \
+            --base "${RUNNER_TEMP}" \
+            --extractors ${{ inputs.extractors }} \
+            --tests ${{ inputs.tests }}
+
+      - name: Publish summary to job
+        if: always()
+        run: |
+          SUMMARY="${GITHUB_WORKSPACE}/security/archive-boundary/evidence-out/summary.md"
+          if [ -f "$SUMMARY" ]; then
+            cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No summary produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-boundary-evidence-${{ github.run_id }}
+          path: security/archive-boundary/evidence-out/
+          if-no-files-found: error
+          retention-days: 14
