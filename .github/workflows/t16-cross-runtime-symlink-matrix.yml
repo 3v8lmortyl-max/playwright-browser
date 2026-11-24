@@ -1,0 +1,69 @@
+name: T16 Cross-Runtime Root Symlink Matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [provenance-test]
+    paths:
+      - .github/workflows/t16-cross-runtime-symlink-matrix.yml
+      - security/archive-boundary/t15_preexisting_symlink_matrix.py
+      - security/archive-boundary/t15_root_extract_helper.py
+
+permissions:
+  contents: read
+
+jobs:
+  extraction-matrix:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            python: "3.10"
+          - os: ubuntu-22.04
+            python: "3.11"
+          - os: ubuntu-24.04
+            python: "3.12"
+          - os: ubuntu-24.04
+            python: "3.13"
+          - os: ubuntu-26.04
+            python: "3.14"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Verify privilege boundary and run matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "RUNNER_IDENTITY:"
+          id
+          test "$(id -u)" -ne 0
+          echo "ROOT_IDENTITY:"
+          sudo -n id
+          echo "PYTHON:"
+          python --version
+          echo "UNZIP:"
+          unzip -v | head -1
+          python security/archive-boundary/t15_preexisting_symlink_matrix.py \
+            --root "$RUNNER_TEMP/t16-${{ matrix.os }}-py${{ matrix.python }}" \
+            --root-helper security/archive-boundary/t15_root_extract_helper.py
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t16-${{ matrix.os }}-python-${{ matrix.python }}-evidence
+          path: ${{ runner.temp }}/t16-${{ matrix.os }}-py${{ matrix.python }}/evidence/
+          if-no-files-found: warn
+          retention-days: 14
