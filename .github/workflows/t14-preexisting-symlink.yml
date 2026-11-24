@@ -69,8 +69,8 @@ jobs:
               if [ -e "$canary/probe.txt" ]; then
                 echo "REDIRECTED_WRITE=YES"
                 stat -c 'target=%n uid=%u gid=%g mode=%a size=%s' "$canary/probe.txt"
-                sha256sum "$canary/probe.txt"
-                cat "$canary/probe.txt"
+                sudo -n sha256sum "$canary/probe.txt"
+                sudo -n cat "$canary/probe.txt"
               else
                 echo "REDIRECTED_WRITE=NO"
               fi
